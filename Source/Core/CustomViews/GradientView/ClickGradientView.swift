@@ -9,30 +9,30 @@ import UIKit
 import RxCocoa
 import RxSwift
 
-class ClickGradientView: GradientView,EventTrigger {
+open class ClickGradientView: GradientView,EventTrigger {
 
-    let rxEvent = PublishSubject<Event>()
+    public let rxEvent = PublishSubject<Event>()
     
-    enum Event {
+    public enum Event {
         case begin
         case end
         case click
     }
     
-    override init(colors: [CGColor] = Colors.gradientColors, size: CGSize = .zero, customView: UIView? = nil, cornerRadius: CGFloat = 0) {
+    public override init(colors: [CGColor] = Colors.gradientColors, size: CGSize = .zero, customView: UIView? = nil, cornerRadius: CGFloat = 0) {
         super.init(colors: colors, size: size, customView: customView, cornerRadius: cornerRadius)
         self.gradientLayer.opacity = 0
     }
     
-    required init?(coder: NSCoder) {
+    public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         self.gradientLayer.opacity = 1
         rxEvent.onNext(.begin)
     }
     
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         self.gradientLayer.opacity = 0
         if let triggerEvent = self.triggerEvent {
             triggerEvent(.click)
@@ -41,7 +41,7 @@ class ClickGradientView: GradientView,EventTrigger {
         rxEvent.onNext(.click)
     }
     
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    public override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         self.gradientLayer.opacity = 0
         rxEvent.onNext(.end)
     }

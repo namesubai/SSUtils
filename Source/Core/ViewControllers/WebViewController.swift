@@ -21,6 +21,9 @@ open class WebViewController: ViewController {
         return view
     }()
     
+    
+    private var url: String?
+    
     open var isAutoSetTitle: Bool = true
     
     open override func viewDidLoad() {
@@ -62,6 +65,7 @@ open class WebViewController: ViewController {
     }
     
     open func loadWebView(url: String) {
+        self.url = url
         logDebug(url)
         if let Url = URL(string: url) {
             webView.load(URLRequest(url: Url))
@@ -72,14 +76,37 @@ open class WebViewController: ViewController {
 
  extension WebViewController: WKNavigationDelegate {
 
-//    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-//    }
-//
-//    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-//    }
-//
-//    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-//    }
+    public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+    }
+
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        self.webView.hideNetworkErrorEmptyView()
+        self.webView.hideEmptyView()
+    }
+
+    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+    }
+    
+    public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        if let error = error as? NSError {
+            if error.code == NSURLErrorNetworkConnectionLost ||
+                error.code == NSURLErrorCannotConnectToHost {
+                self.webView.showNetworkErrorEmptyView {
+                    [weak self] in guard let self = self else { return }
+                    if let url = URL(string: self.url ?? "") {
+                        self.webView.load(URLRequest(url: url))
+                    }
+                }
+            } else {
+                self.webView.showEmptyView(title: "Load Failed", buttonTitle: "ReFresh") {
+                    [weak self] in guard let self = self else { return }
+                    if let url = URL(string: self.url ?? "") {
+                        self.webView.load(URLRequest(url: url))
+                    }
+                }
+            }
+        }
+    }
 }
 
 extension WebViewController: WKUIDelegate {

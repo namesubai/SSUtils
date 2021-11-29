@@ -10,12 +10,12 @@ import RxSwift
 import RxCocoa
 import RxGesture
 
-extension Reactive where Base: UIView {
+public extension Reactive where Base: UIView {
     func tap() -> Observable<Void> {
         return tapGesture().when(.recognized).mapToVoid()
     }
 }
-extension Observable where Element: Equatable {
+public extension Observable where Element: Equatable {
     func ignore(value: Element) -> Observable<Element> {
         return filter { (selfE) -> Bool in
             return value != selfE
@@ -24,19 +24,19 @@ extension Observable where Element: Equatable {
 }
 
 
-extension ObservableType where Element == Bool {
+public extension ObservableType where Element == Bool {
     public func not() -> Observable<Bool> {
         return self.map(!)
     }
 }
 
-extension SharedSequenceConvertibleType {
+public extension SharedSequenceConvertibleType {
     func mapToVoid() -> SharedSequence<SharingStrategy, Void> {
         return map { _ in }
     }
 }
 
-extension ObservableType {
+public extension ObservableType {
 
     func catchErrorJustComplete() -> Observable<Element> {
         return catchError { _ in

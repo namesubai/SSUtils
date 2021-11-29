@@ -27,6 +27,14 @@ public extension Int {
         let roundedNum: Double = round(10 * num / pow(1000.0, Double(exp))) / 10
         return "\(sign)\(roundedNum)\(units[exp-1])"
     }
+    
+    func string() -> String? {
+        if self == nil {
+            return nil
+        } else {
+            return "\(self)"
+        }
+    }
 }
 
 

@@ -9,20 +9,20 @@ import Foundation
 import RxSwift
 import Alamofire
 
-func connectedToInternet() -> Observable<Bool> {
+public func connectedToInternet() -> Observable<Bool> {
     return Reachability.shared.reach
 }
 
-class Reachability: NSObject {
+public class Reachability: NSObject {
     
-    static let shared = Reachability()
-    let reachSubject = ReplaySubject<Bool>.create(bufferSize: 1)
-    var reach: Observable<Bool> {
+    public static let shared = Reachability()
+    public let reachSubject = ReplaySubject<Bool>.create(bufferSize: 1)
+    public var reach: Observable<Bool> {
         return reachSubject.asObserver()
     }
-    private(set) var reachAble: Bool = false
-    private(set) var stateStrng: String = "Unknow"
-    private(set) var isWiFi: Bool = false
+    public private(set) var reachAble: Bool = false
+    public private(set) var stateStrng: String = "Unknow"
+    public private(set) var isWiFi: Bool = false
     override init() {
         super.init()
         NetworkReachabilityManager.default?.startListening(onUpdatePerforming: {

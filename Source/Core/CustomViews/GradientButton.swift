@@ -15,13 +15,25 @@ open class GradientButton: UIButton {
     open var gradientLayer: CAGradientLayer {
         return self.layer as! CAGradientLayer
     }
+    
+    public var autoCornerRadious: Bool = false
+    public var enabledBGView: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor.hex(0xffffff).withAlphaComponent(0.6)
+        return view
+    }()
 
     open override var isEnabled: Bool {
         didSet {
             if !isEnabled {
-                alpha = 0.7
+                addSubview(enabledBGView)
+                enabledBGView.snp.remakeConstraints { make in
+                    make.edges.equalTo(0)
+                }
+//                alpha = 0.7
             } else {
-                alpha = 1
+                enabledBGView.removeFromSuperview()
+//                alpha = 1
             }
         }
     }
@@ -29,8 +41,18 @@ open class GradientButton: UIButton {
     public override init(frame: CGRect) {
         super.init(frame: frame)
         gradientLayer.colors = [UIColor.hex(0x2D8BFF).cgColor, UIColor.hex(0x2080FF).cgColor]
-        gradientLayer.startPoint = CGPoint(x: 0, y: 0)
-        gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0.5)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
+        gradientLayer.drawsAsynchronously = true
+
+    }
+    
+    open override func layoutSubviews() {
+        super.layoutSubviews()
+        if autoCornerRadious {
+            layer.masksToBounds = true
+            layer.cornerRadius = ss_h / 2
+        }
     }
     
     public required init?(coder: NSCoder) {

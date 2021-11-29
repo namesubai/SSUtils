@@ -36,6 +36,63 @@ public enum SSProgressHUDMode {
     case  progressValue
      ///图标
     case  image
+    
+    case custom(customView: UIView & SSProgressCustom)
+    
+    var isLoadAndText: Bool {
+        switch self {
+        case .loadAndText:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isLoadOnly: Bool {
+        switch self {
+        case .loadOnly:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isTexOnly: Bool {
+        switch self {
+        case .texOnly:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isImage: Bool {
+        switch self {
+        case .image:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isProgressValue: Bool {
+        switch self {
+        case .progressValue:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    var isCustom: Bool {
+        switch self {
+        case .custom:
+            return true
+        default:
+            return false
+        }
+    }
+    
 }
 
 ///风格
@@ -44,6 +101,11 @@ public enum SSProgressHUDStyle {
     case white
     ///黑色风格
     case black
+    
+    /// 透明
+    case clear
+    /// 自定义
+    case custom(color: UIColor)
 }
 
 
@@ -64,6 +126,10 @@ fileprivate func textColor(_ style: SSProgressHUDStyle) -> UIColor {
         return UIColor.black
     case .black:
         return UIColor.white
+    case .clear:
+        return UIColor.black
+    case .custom(let color):
+        return UIColor.white
     }
 }
 
@@ -73,7 +139,12 @@ fileprivate func customBackgroundColor(_ style: SSProgressHUDStyle) -> UIColor {
         return UIColor.white
     case .black:
         return UIColor.black.withAlphaComponent(0.8)
+    case .clear:
+        return UIColor.clear
+    case .custom(let color):
+        return color
     }
+    
 }
 
 
@@ -85,6 +156,19 @@ public protocol SSProgressCustom {
     var textFont: UIFont? { get  set}
     var customSize: CGSize { get set}
     var image: UIImage? { get  set}
+    var progress: CGFloat? { get set }
+}
+
+public extension SSProgressCustom {
+    var progress: CGFloat? {
+        get {
+            return nil
+        }
+        
+        set {
+            
+        }
+    }
 }
 
 
@@ -162,7 +246,7 @@ class ProgressCustomLoadTextView: UIView & SSProgressCustom {
     private var _image: UIImage? = nil
     
     var textLabel: UILabel? = nil
-    var activityIndicatorView: UIActivityIndicatorView? = nil
+    var loadingView: UIView? = nil
     var mode: CustomLoadTextMode
     
     init(mode:CustomLoadTextMode) {
@@ -190,16 +274,27 @@ class ProgressCustomLoadTextView: UIView & SSProgressCustom {
         }
         
         if self.mode == .loadAndText || self.mode == .loadOnly {
-            if #available(iOS 13.0, *) {
-                activityIndicatorView =  UIActivityIndicatorView(style: .large)
-                activityIndicatorView?.color = UIColor.white
+            if let loadingView = SSProgressHUDConfig.defaultCustomLoading {
+                self.loadingView =  loadingView
             } else {
-                activityIndicatorView =  UIActivityIndicatorView(style: .white)
+                if #available(iOS 13.0, *) {
+                    let activityIndicatorView = UIActivityIndicatorView(style: .large)
+                    activityIndicatorView.color = UIColor.white
+                    activityIndicatorView.color = textColor
+                    activityIndicatorView.startAnimating()
+                    loadingView =  activityIndicatorView
+                } else {
+                    let activityIndicatorView =  UIActivityIndicatorView(style: .white)
+                    activityIndicatorView.color = textColor
+                    activityIndicatorView.startAnimating()
+                    loadingView =  activityIndicatorView
+                }
+               
             }
-            activityIndicatorView?.color = textColor
-            activityIndicatorView!.startAnimating()
-            self.addSubview(activityIndicatorView!)
-            self.setNeedsLayout()
+            if let loadingView = loadingView {
+                self.addSubview(loadingView)
+                self.setNeedsLayout()
+            }
         }
         
         
@@ -210,8 +305,13 @@ class ProgressCustomLoadTextView: UIView & SSProgressCustom {
         var selfWidth: CGFloat = 0
         var selfHeight: CGFloat = 0
         var activityIndicatorViewY: CGFloat = 0;
-        if let activityIndicatorView = activityIndicatorView {
-            activityIndicatorView.frame = CGRect(x: (self.frame.size.width - kActivityIndicatorViewSize.width) / 2, y: 0, width: kActivityIndicatorViewSize.width, height: kActivityIndicatorViewSize.height)
+        if let loadingView = loadingView {
+            if loadingView.ss_size != .zero {
+                loadingView.frame = CGRect(x: (self.frame.size.width - loadingView.ss_w) / 2, y: 0, width: loadingView.ss_w, height: loadingView.ss_h)
+            } else {
+                loadingView.frame = CGRect(x: (self.frame.size.width - kActivityIndicatorViewSize.width) / 2, y: 0, width: kActivityIndicatorViewSize.width, height: kActivityIndicatorViewSize.height)
+            }
+            
             selfHeight = kActivityIndicatorViewSize.height
             selfWidth = kActivityIndicatorViewSize.width
             activityIndicatorViewY += kActivityIndicatorViewAndTextSpace + selfHeight
@@ -359,6 +459,26 @@ class SSProgressCustomImageAndTextView: UIView & SSProgressCustom {
 
 
 // MARK: SSProgressHUD
+public struct SSProgressHUDConfig {
+    /// loading的默认样式 如果不为nil,默认显示这个loading， 否则显示默认菊花样式
+    public static var defaultCustomLoading: UIView? = nil
+    /// 背景风格
+    public static var defaultHUDStyle: SSProgressHUDStyle?
+    /// 文字模式背景颜色
+    public static var defaultTextHUDColor: UIColor? = nil
+    /// loading模式背景颜色
+    public static var defaultLoadingHUDColor: UIColor? = nil
+    /// 背景圆角大小
+    public static var defaultHUDRadious: CGFloat = 10
+    /// 文字提示字体大小
+    public static var defaulHUDTextFont: UIFont = UIFont.systemFont(ofSize: 15,weight: .medium)
+    /// 文字提示字体颜色
+    public static var defaulHUDTextColor: UIColor?
+
+    /// 内边距
+    public static var defaultCustomInsetsEdge: UIEdgeInsets?
+    
+}
 
 public class SSProgressHUD: UIView {
     
@@ -370,13 +490,13 @@ public class SSProgressHUD: UIView {
     }()
     
     ///背景视图
-    var maskType = SSProgressHUDMaskType.none
-    var customView: UIView & SSProgressCustom
-    var customEdgeInsets: UIEdgeInsets = UIEdgeInsets(top: 15.0, left: 15.0, bottom: 15.0, right: 15.0)
+    public var maskType = SSProgressHUDMaskType.none
+    public var customView: UIView & SSProgressCustom
+    public var customEdgeInsets: UIEdgeInsets = UIEdgeInsets(top: 15.0, left: 15.0, bottom: 15.0, right: 15.0)
     private var effectBulrView: UIVisualEffectView
-    private var style: SSProgressHUDStyle
-    
-    var isShowEffectBulrView: Bool = false
+    public var style: SSProgressHUDStyle
+    public var mode: SSProgressHUDMode?
+    public var isShowEffectBulrView: Bool = false
     
    public convenience init(mode:SSProgressHUDMode, style: SSProgressHUDStyle = .black) {
         var customView: UIView & SSProgressCustom
@@ -388,11 +508,15 @@ public class SSProgressHUD: UIView {
             case .texOnly:
                        customView = ProgressCustomLoadTextView.init(mode: .textOnly)
             case .progressValue:
-                       customView = ProgressCustomLoadTextView.init(mode: .loadOnly)
+                customView = CircleLoadingCustomView(type: .progress)
             case .image:
                 customView = SSProgressCustomImageAndTextView.init(frame: .zero)
+            case .custom(let cst):
+                customView = cst
         }
         self.init(customView:customView, style:style)
+       self.mode = mode
+
     }
     
   
@@ -405,9 +529,13 @@ public class SSProgressHUD: UIView {
         self.effectBulrView.layer.masksToBounds = true
         self.effectBulrView.backgroundColor = customBackgroundColor(self.style)
         super.init(frame: .zero)
-        self.layer.cornerRadius = kCustomViewCornerRadius
+        self.layer.cornerRadius = SSProgressHUDConfig.defaultHUDRadious
         self.layer.masksToBounds = true
-        self.customView.textColor = textColor(self.style)
+        if let textColor = SSProgressHUDConfig.defaulHUDTextColor {
+            self.customView.textColor = textColor
+        } else {
+            self.customView.textColor = textColor(self.style)
+        }
     }
     
     
@@ -440,7 +568,23 @@ public class SSProgressHUD: UIView {
             if isShowEffectBulrView {
                 self.addSubview(self.effectBulrView)
             }else {
-                self.backgroundColor = customBackgroundColor(self.style)
+                switch mode {
+                case .loadOnly, .loadAndText:
+                    if let color = SSProgressHUDConfig.defaultLoadingHUDColor {
+                        self.backgroundColor = color
+                    } else {
+                        self.backgroundColor = customBackgroundColor(self.style)
+                    }
+                case .texOnly:
+                    if let color = SSProgressHUDConfig.defaultTextHUDColor {
+                        self.backgroundColor = color
+                    } else {
+                        self.backgroundColor = customBackgroundColor(self.style)
+                    }
+                default:
+                    self.backgroundColor = customBackgroundColor(self.style)
+                }
+               
             }
             self.addSubview(self.customView)
             if animation {
@@ -527,6 +671,11 @@ extension UIView {
         return self.showHUD(mode: .image, maskType: maskType, text: text, image: image, autoHide: autoHide, hideFinished: hideFinished)
     }
     
+    @discardableResult
+    public func showProgress(maskType: SSProgressHUDMaskType = .none, tag: Int = -1, hideFinished: (() -> Void )? = nil)  -> SSProgressHUD? {
+        return self.showHUD(mode: .progressValue, maskType: maskType, hideFinished: hideFinished)
+    }
+    
     ///隐藏
     public func hideHUD(tag: Int = -1, hideFinished: (() -> Void )? = nil)  {
 //        if tag == -1 {
@@ -554,8 +703,9 @@ extension UIView {
     }
     
     
-    private  func showHUD(mode: SSProgressHUDMode, maskType: SSProgressHUDMaskType = .none, text: String?, image: UIImage?, autoHide: Bool,  tag: Int = -1, hideFinished: (() -> Void )? = nil) -> SSProgressHUD?  {
-        if mode == .texOnly  {
+    public  func showHUD(mode: SSProgressHUDMode, maskType: SSProgressHUDMaskType = .none, style: SSProgressHUDStyle = .black, text: String? = nil, image: UIImage? = nil, autoHide: Bool = false,  tag: Int = -1, hideFinished: (() -> Void )? = nil) -> SSProgressHUD?  {
+        
+        if mode.isTexOnly  {
             if text == nil {
                 return nil
             }else {
@@ -566,25 +716,34 @@ extension UIView {
         }
         
         let hud = SSProgressHUD(mode: mode)
-        if mode == .texOnly || mode == .image {
-            hud.customEdgeInsets = UIEdgeInsets(top: 23.wScale, left: 20.wScale, bottom: 23.wScale, right: 20.wScale)
-        }else {
-            hud.customEdgeInsets = UIEdgeInsets(top: 30.wScale, left: 30.wScale, bottom: 30.wScale, right: 30.wScale)
+        if let hudStyle = SSProgressHUDConfig.defaultHUDStyle {
+            hud.style = hudStyle
+        } else {
+            hud.style = style
         }
+        
+        
+        if let customEdgeInsets = SSProgressHUDConfig.defaultCustomInsetsEdge {
+            hud.customEdgeInsets = customEdgeInsets
+
+        } else {
+            if mode.isTexOnly || mode.isImage {
+                hud.customEdgeInsets = UIEdgeInsets(top: 23.wScale, left: 20.wScale, bottom: 23.wScale, right: 20.wScale)
+            }else {
+                hud.customEdgeInsets = UIEdgeInsets(top: 30.wScale, left: 30.wScale, bottom: 30.wScale, right: 30.wScale)
+            }
+        }
+        
         hud.customView.text = text
         hud.customView.image = image
         hud.maskType = maskType
         if let text = text,text.count > 0 {
             
             let line = text.stringLineCount(font: UIFont.systemFont(ofSize: 15, weight: .medium), width: kTextLabelMaxWidth)
-            if line == 1 {
-                hud.customView.textFont = UIFont.boldSystemFont(ofSize: 15)
-            }else {
-                hud.customView.textFont = UIFont.systemFont(ofSize: 15, weight: .medium)
-            }
+            hud.customView.textFont = SSProgressHUDConfig.defaulHUDTextFont
         }
         var tag = tag
-        if tag == -1 && (mode != .loadAndText && mode != .loadOnly) {
+        if tag == -1 && (!mode.isLoadAndText && !mode.isLoadOnly) {
             tag = -2
         }
         hud.showHUD(onView: self)

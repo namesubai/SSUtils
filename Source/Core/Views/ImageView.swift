@@ -19,3 +19,4 @@ open class ImageView: UIImageView {
     */
 
 }
+

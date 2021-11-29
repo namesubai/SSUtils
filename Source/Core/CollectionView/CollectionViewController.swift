@@ -32,18 +32,7 @@ open class CollectionViewController: ViewController {
     }()
     
     
-    public lazy var collectionView: CollectionView! = {
-        let layout = UICollectionViewFlowLayout()
-        let collectionView = CollectionView(frame: .zero, collectionViewLayout: layout)
-        collectionView.alwaysBounceVertical = true
-        collectionView.backgroundColor = Colors.backgroud
-        view.addSubview(collectionView)
-        collectionView.snp.makeConstraints { (make) in
-            make.edges.equalToSuperview()
-        }
-        return collectionView
-    }()
-    public var collectionViewLayout: UICollectionViewLayout?
+    public var collectionView: CollectionView!
     
     
     @objc private func headerRefreshAction() {
@@ -52,13 +41,24 @@ open class CollectionViewController: ViewController {
     
     open override func viewDidLoad() {
         super.viewDidLoad()
-                
+    }
+    
+    open override func make() {
+        super.make()
+        let layout = UICollectionViewFlowLayout()
+        collectionView = CollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.alwaysBounceVertical = true
+        collectionView.backgroundColor = Colors.backgroud
+        view.addSubview(collectionView)
+        collectionView.snp.makeConstraints { (make) in
+            make.edges.equalToSuperview()
+        }
     }
     
     open override func bind() {
         super.bind()
         guard let viewModel = self.viewModel else { return }
-        viewModel.noData.subscribe(onNext: {
+        viewModel.noData.observe(on: MainScheduler.instance).subscribe(onNext: {
             [weak self]
             noData
             in
@@ -66,7 +66,7 @@ open class CollectionViewController: ViewController {
             self.collectionView.isHidden = noData != nil
         }).disposed(by: disposeBag)
         
-        emptyTrigger.subscribe(onNext: {
+        notNetworkRetryTrigger.subscribe(onNext: {
             [weak self]
             in
             guard let self = self else {return}

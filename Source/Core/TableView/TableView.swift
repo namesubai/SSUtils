@@ -19,6 +19,7 @@ open class TableView: UITableView {
         setUI()
     }
     
+    
 //    override var separatorInset: UIEdgeInsets {
 //        didSet {
 //            let newSeparatorInset = UIEdgeInsets(top: separatorInset.top, left: separatorInset.left, bottom: separatorInset.bottom + 10, right: separatorInset.right)
@@ -38,12 +39,17 @@ open class TableView: UITableView {
         estimatedSectionHeaderHeight = 0.0
         estimatedSectionFooterHeight = 0.0
         cellLayoutMarginsFollowReadableWidth = false
-        keyboardDismissMode = .onDrag
+//        keyboardDismissMode = .onDrag
         separatorColor = Colors.line
         separatorStyle = .none
-        separatorInset = UIEdgeInsets(top: 0, left: 18, bottom: 0, right: 18)
+        separatorInset = UIEdgeInsets(top: 0, left: 16.wScale, bottom: 0, right: 16.wScale)
         tableFooterView = UIView()
 //        tableHeaderView = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: 0.5))
+    }
+    
+    open override func touchesShouldBegin(_ touches: Set<UITouch>, with event: UIEvent?, in view: UIView) -> Bool {
+        self.superview?.endEditing(true)
+        return true
     }
     
     public var insetGroupedCornerRadius: CGFloat = 10

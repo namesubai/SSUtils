@@ -9,6 +9,32 @@ import UIKit
 
 open class TextField: UITextField {
     open var padding: UIEdgeInsets = .zero
+    public var wordLength: Int = 0
+    public var firstWordIsCannotSapce = false
+    public override init(frame: CGRect) {
+        super.init(frame: frame)
+        rx.text.subscribe(onNext: {
+            [weak self]
+            txt in guard let self = self else { return }
+            if let text = txt, self.wordLength > 0, text.count > self.wordLength {
+                self.text = String(text.suffix(self.wordLength))
+            }
+            if self.firstWordIsCannotSapce, var text = txt, text.count > 0 {
+                for c in text {
+                    if c == " " {
+                        text.removeFirst()
+                    } else {
+                        break
+                    }
+                }
+                self.text = text
+            }
+        }).disposed(by: rx.disposeBag)
+    }
+    
+    required public init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     open override func textRect(forBounds bounds: CGRect) -> CGRect {
         var rect = super.textRect(forBounds: bounds)
@@ -52,6 +78,7 @@ open class TextField: UITextField {
         return rect
     }
     
+   
     /*
     // Only override draw() if you perform custom drawing.
     // An empty implementation adversely affects performance during animation.

@@ -9,7 +9,7 @@ import Foundation
 import RxCocoa
 import RxSwift
 
-extension Reactive where Base: GradientView {
+public extension Reactive where Base: GradientView {
    
     var isEnable: Binder<Bool> {
        return Binder(self.base) { (view, isEnable) in

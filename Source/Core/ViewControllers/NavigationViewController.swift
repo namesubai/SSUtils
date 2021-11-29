@@ -6,6 +6,8 @@
 //
 
 import UIKit
+import RxSwift
+import RxCocoa
 
 public extension UINavigationBar {
     func hideBottomHairline() {
@@ -29,28 +31,41 @@ public extension UINavigationBar {
         for view in onView.subviews {
             if  NSStringFromClass(view.classForCoder) == name {
                 return view
-            } else {
-                return self.findBackGroudView(onView: view, name: name)
+            } else if let view = self.findBackGroudView(onView: view, name: name) {
+                return view
             }
         }
         return nil
     }
     
     func hideVisualEffectView (isHide: Bool, navBarColor: UIColor?) {
-        if let visualEffectView = findBackGroudView(onView: self, name: "UIVisualEffectView") {
-            visualEffectView.isHidden = isHide
-            if isHide {
-                if let bgView = findBackGroudView(onView: self, name: "_UIBarBackground") {
-                    barTintColor = navBarColor
-                    bgView.backgroundColor = navBarColor
-                }
-            } else {
-                if let bgView = findBackGroudView(onView: self, name: "_UIBarBackground") {
-                    barTintColor = nil
-                    bgView.backgroundColor = .clear
+        if let bgView = findBackGroudView(onView: self, name: "_UIBarBackground") {
+            bgView.subviews.forEach { view in
+                view.isHidden = isHide
+                if view.isKind(of: UIVisualEffectView.self) {
+                    view.subviews.forEach { subView in
+                        subView.isHidden = isHide
+                    }
                 }
             }
         }
+//        if let visualEffectView = findBackGroudView(onView: self, name: "UIVisualEffectView") {
+////            visualEffectView.isHidden = isHide
+//            if isHide {
+//                if let bgView = findBackGroudView(onView: self, name: "_UIBarBackground") {
+//                    barTintColor = nil
+//                    bgView.isHidden = true
+//                    bgView.backgroundColor = .clear
+//                }
+//            } else {
+//                if let bgView = findBackGroudView(onView: self, name: "_UIBarBackground") {
+//                    
+//                    barTintColor = navBarColor
+//                    bgView.isHidden = false
+//                    bgView.backgroundColor = navBarColor
+//                }
+//            }
+//        }
     }
     
     
@@ -92,6 +107,12 @@ public extension UITabBar {
         }
         return nil
     }
+    
+    func addCorner(radious: CGFloat) {
+        if let bgView = findBackGroudView(onView: self, name: "_UIBarBackground") {
+            bgView.addCorner(roundingCorners: [.topLeft, .topRight], cornerSize: CGSize(width: radious, height: radious))
+        }
+    }
 }
 
 public extension UIView {
@@ -126,7 +147,21 @@ open class NavigationViewController: UINavigationController{
 //        self.navigationBar.backIndicatorImage = UIImage(named: R.image.left_arrow.name)?.withRenderingMode(.alwaysOriginal)
 //        self.navigationBar.backIndicatorTransitionMaskImage = UIImage(named: R.image.left_arrow.name)?.withRenderingMode(.alwaysOriginal)
         interactivePopGestureRecognizer?.delegate = self
-        navigationBar.titleTextAttributes = [NSAttributedString.Key.foregroundColor : Colors.headline , NSAttributedString.Key.font : Fonts.semiBold(18)]
+        if #available(iOS 15.0, *) {
+            navigationBar.rx.methodInvoked(#selector(setter: UINavigationBar.titleTextAttributes)).subscribe(onNext: { [weak self] attr in guard let self = self else { return }
+                let appearance = UINavigationBarAppearance()
+                appearance.configureWithTransparentBackground()
+                appearance.titleTextAttributes = self.navigationBar.titleTextAttributes ?? [NSAttributedString.Key : Any]()
+                appearance.backgroundColor = Colors.navBarBackgroud
+//                appearance.backgroundColor = Colors.navBarBackgroud.withAlphaComponent(0.9)
+//                appearance.backgroundEffect = UIBlurEffect(style: .light)
+                self.navigationBar.standardAppearance = appearance
+                self.navigationBar.scrollEdgeAppearance = appearance
+            }).disposed(by: rx.disposeBag)
+        }
+        navigationBar.titleTextAttributes = [NSAttributedString.Key.foregroundColor : Colors.headline , NSAttributedString.Key.font : App.navBarTitleFont]
+
+        
 //        var count:UInt32 = 0
 //        if let list = class_copyMethodList(UINavigationController.self,  &count) {
 //            for i in 0..<count {
@@ -136,7 +171,17 @@ open class NavigationViewController: UINavigationController{
 //                self.topViewController?.transitionCoordinator
 //            }
 //        }
-        
+        if #available(iOS 15.0, *) {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithTransparentBackground()
+            appearance.backgroundColor = Colors.navBarBackgroud
+
+//            appearance.backgroundColor = Colors.navBarBackgroud.withAlphaComponent(0.9)
+//            appearance.backgroundEffect = UIBlurEffect(style: .light)
+            appearance.titleTextAttributes = navigationBar.titleTextAttributes ?? [NSAttributedString.Key : Any]()
+            self.navigationBar.standardAppearance = appearance
+            self.navigationBar.scrollEdgeAppearance = appearance
+        }
        
         // Do any additional setup after loading the view.
     }
@@ -147,19 +192,22 @@ open class NavigationViewController: UINavigationController{
     }
     
     open override func pushViewController(_ viewController: UIViewController, animated: Bool) {
-        if viewControllers.count > 0 {
-//            viewController.isHideTabbarWhenPush = true
-//            hideTabbar(animation: true)
+        if viewControllers.count > 0 && viewController != viewControllers.first {
+            viewController.hidesBottomBarWhenPushed = App.isHideTabBarWhenPush
         }
         super.pushViewController(viewController, animated: animated)
     }
     
+    open override func setViewControllers(_ viewControllers: [UIViewController], animated: Bool) {
+        if viewControllers.count > 1 {
+            viewControllers.last!.hidesBottomBarWhenPushed = App.isHideTabBarWhenPush
+        }
+        super.setViewControllers(viewControllers, animated: animated)
+    }
     
     
     open override func popViewController(animated: Bool) -> UIViewController? {
-        if self.viewControllers.count > 0 {
-
-        }
+       
         self.view.endEditing(true)
         let vc = super.popViewController(animated: animated)
         return vc

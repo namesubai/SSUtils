@@ -37,3 +37,33 @@ public extension UILabel {
         return label
     }
 }
+
+public extension UILabel {
+    func setLineHeight(_ lineHeight: CGFloat) {
+        guard let text = text else {
+            return
+        }
+        let attrString = NSMutableAttributedString(string: text)
+        if let attributedText = attributedText {
+            let attrString = NSMutableAttributedString(attributedString: attributedText)
+        }
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.minimumLineHeight = lineHeight
+        attrString.addAttribute(NSAttributedString.Key.paragraphStyle, value: paragraphStyle, range: NSMakeRange(0, text.count))
+        attributedText = attrString
+    }
+    
+    func setLineSpacing(_ lineSpacing: CGFloat) {
+        guard let text = text else {
+            return
+        }
+        var attrString = NSMutableAttributedString(string: text)
+        if let attributedText = attributedText {
+            let attrString = NSMutableAttributedString(attributedString: attributedText)
+        }
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = lineSpacing
+        attrString.addAttribute(NSAttributedString.Key.paragraphStyle, value: paragraphStyle, range: NSMakeRange(0, text.count))
+        attributedText = attrString
+    }
+}

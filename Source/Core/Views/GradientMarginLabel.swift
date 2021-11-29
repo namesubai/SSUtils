@@ -47,8 +47,8 @@ open class GradientMarginLabel: MarginLabel {
     public override init(frame: CGRect) {
         super.init(frame: frame)
         gradientLayer.colors = [UIColor.hex(0x2D8BFF).cgColor, UIColor.hex(0x2080FF).cgColor]
-        gradientLayer.startPoint = CGPoint(x: 0, y: 0)
-        gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0.5)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
     }
     
     open override func layoutSubviews() {

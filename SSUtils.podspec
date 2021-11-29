@@ -13,7 +13,8 @@ Pod::Spec.new do |s|
   s.default_subspec = "Core"
   s.subspec "Core" do |ss|
     ss.source_files  = "Source/Core/**/*/*.swift"
-    ss.dependency "SSUtils/Resources"
+#    ss.resource_bundles = {'Resources' => ['Source/Core/Resources/*.xcassets']}
+    ss.resources = 'Source/Core/Resources/*.xcassets', 'Source/Core/Resources/**/*/*.strings'
     ss.dependency "Moya-ObjectMapper"
     ss.dependency "SnapKit"
     ss.dependency "SSAlertSwift"
@@ -28,12 +29,12 @@ Pod::Spec.new do |s|
     ss.dependency "RxOptional"
     ss.dependency "RxViewController"
     ss.dependency "YYCache"
-    ss.dependency "CocoaLumberjack/Swift", :configurations => ['Debug']
-    #ss.dependency "RxSwiftExt"
+    ss.dependency "YYText"
+    ss.dependency "CocoaLumberjack/Swift" #, :configurations => ['Debug']
+    ss.dependency "KeychainAccess"  # https://github.com/kishikawakatsumi/KeychainAccess
+    ss.dependency "RxSwiftExt"
+    ss.dependency "CryptoSwift"
     ss.framework  = "Foundation"
   end
   
-   s.subspec 'Resources' do |ss|
-    ss.resource_bundles = {'Resources' => ['Resources/*.*']}
-  end
 end

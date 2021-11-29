@@ -6,12 +6,44 @@
 //
 
 import Foundation
-import System
 import AdSupport
+import KeychainAccess
 
-fileprivate let deviceIdentifierKey = "com..deviceIdentifier"
+fileprivate var deviceIdentifierKey: String {
+    App.bundleIdentifier + ".deviceIdentifierKey"
+}
 fileprivate var associateddeviceIdentifierKey: Int8 = 0
+let keychain = Keychain(service: App.bundleIdentifier)
 public extension UIDevice {
+    
+
+    var deviceIdentifier: String {
+//       try? Application.share.keychain.remove(deviceIdentifierKey)
+
+        if let deviceIdentifier = objc_getAssociatedObject(self, &associateddeviceIdentifierKey) as? String {
+            return deviceIdentifier
+        }else {
+            if let deviceIdentifier = UserDefaults.standard.value(forKey: deviceIdentifierKey) {
+                objc_setAssociatedObject(self, &associateddeviceIdentifierKey, deviceIdentifier, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                return deviceIdentifier as! String
+            }else {
+                if let deviceIdentifier = try? keychain.getString(deviceIdentifierKey) {
+                    objc_setAssociatedObject(self, &associateddeviceIdentifierKey, deviceIdentifier, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                    return deviceIdentifier
+                }else {
+                    let puuid = CFUUIDCreate( nil );
+                    let uuidString = CFUUIDCreateString( nil, puuid );
+                    let deviceIdentifier = CFStringCreateCopy( nil, uuidString) as String;
+                    UserDefaults.standard.setValue(deviceIdentifier, forKey: deviceIdentifierKey)
+                    UserDefaults.standard.synchronize()
+                    try? keychain.set(deviceIdentifier, key: deviceIdentifierKey)
+                    objc_setAssociatedObject(self, &associateddeviceIdentifierKey, deviceIdentifier, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                    return deviceIdentifier
+                }
+            }
+        }
+        
+    }
     
     public var modelName: String {
         var systemInfo = utsname()

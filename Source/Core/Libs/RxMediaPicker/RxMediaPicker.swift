@@ -3,6 +3,7 @@ import Foundation
 import MobileCoreServices
 import RxSwift
 import UIKit
+import PhotosUI
 
 enum RxMediaPickerAction {
     case photo(observer: AnyObserver<(UIImage, UIImage?)>)
@@ -18,9 +19,13 @@ public enum RxMediaPickerError: Error {
 @objc public protocol RxMediaPickerDelegate {
     func present(picker: UIImagePickerController)
     func dismiss(picker: UIImagePickerController)
+    @available(iOS 14, *)
+    func ph_present(picker: PHPickerViewController)
+    @available(iOS 14, *)
+    func ph_dismiss(picker: PHPickerViewController)
 }
 
-@objc open class RxMediaPicker: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+@objc open class RxMediaPicker: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate, PHPickerViewControllerDelegate {
     weak var delegate: RxMediaPickerDelegate?
 
     fileprivate var currentAction: RxMediaPickerAction?
@@ -69,8 +74,8 @@ public enum RxMediaPickerError: Error {
             picker.allowsEditing = editable
             picker.delegate = self
             picker.videoMaximumDuration = maximumDuration
-
             self.present(picker)
+
 
             return Disposables.create()
         }
@@ -106,12 +111,23 @@ public enum RxMediaPickerError: Error {
         return Observable.create { [unowned self] observer in
             self.currentAction = RxMediaPickerAction.photo(observer: observer)
 
-            let picker = UIImagePickerController()
-            picker.sourceType = source
-            picker.allowsEditing = editable
-            picker.delegate = self
+            if #available(iOS 14, *) {
+                var config = PHPickerConfiguration(photoLibrary: PHPhotoLibrary.shared())
+                config.selectionLimit = 1
+                config.filter = .images
+                config.preferredAssetRepresentationMode = .current
+                let picker = PHPickerViewController(configuration: config)
+                picker.delegate = self
+                self.ph_present(picker)
 
-            self.present(picker)
+            } else {
+                let picker = UIImagePickerController()
+                picker.sourceType = source
+                picker.allowsEditing = editable
+                picker.delegate = self
+                self.present(picker)
+            }
+
 
             return Disposables.create()
         }
@@ -129,51 +145,80 @@ public enum RxMediaPickerError: Error {
         observer.onCompleted()
     }
 
-    func processVideo(info: [UIImagePickerController.InfoKey: Any],
+    func processVideo(ph_videoUrl: URL? = nil,
+                      info: [UIImagePickerController.InfoKey: Any]? = nil,
                       observer: AnyObserver<URL>,
                       maxDuration: TimeInterval,
-                      picker: UIImagePickerController) {
-        guard let videoURL = info[UIImagePickerController.InfoKey.mediaURL] as? URL else {
-            observer.on(.error(RxMediaPickerError.generalError))
-            dismiss(picker)
-            return
+                      picker: Any) {
+        
+        var videoURL: URL?
+        var editedStart: NSNumber?
+        var editedEnd: NSNumber?
+        if let info = info {
+            videoURL = info[UIImagePickerController.InfoKey.mediaURL] as? URL
+            editedStart = info[UIImagePickerController.InfoKey(rawValue: "_UIImagePickerControllerVideoEditingStart")] as? NSNumber
+            editedEnd = info[UIImagePickerController.InfoKey(rawValue: "_UIImagePickerControllerVideoEditingEnd")] as? NSNumber
+
         }
-
-        guard let editedStart = info[UIImagePickerController.InfoKey(rawValue: "_UIImagePickerControllerVideoEditingStart")] as? NSNumber,
-            let editedEnd = info[UIImagePickerController.InfoKey(rawValue: "_UIImagePickerControllerVideoEditingEnd")] as? NSNumber else {
-            processVideo(url: videoURL, observer: observer, maxDuration: maxDuration, picker: picker)
-            return
+        
+        if let ph_videoUrl = ph_videoUrl  {
+            videoURL = ph_videoUrl
         }
+        if let videoURL = videoURL  {
+            
+            let cachesDirectory = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first!
+            let editedVideoURL = URL(fileURLWithPath: cachesDirectory).appendingPathComponent("\(UUID().uuidString).mov", isDirectory: false)
+            let asset = AVURLAsset(url: videoURL)
 
-        let start = Int64(editedStart.doubleValue * 1000)
-        let end = Int64(editedEnd.doubleValue * 1000)
-        let cachesDirectory = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first!
-        let editedVideoURL = URL(fileURLWithPath: cachesDirectory).appendingPathComponent("\(UUID().uuidString).mov", isDirectory: false)
-        let asset = AVURLAsset(url: videoURL)
-
-        if let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) {
-            exportSession.outputURL = editedVideoURL
-            exportSession.outputFileType = AVFileType.mov
-            exportSession.timeRange = CMTimeRange(start: CMTime(value: start, timescale: 1000), duration: CMTime(value: end - start, timescale: 1000))
-
-            exportSession.exportAsynchronously(completionHandler: {
-                switch exportSession.status {
-                case .completed:
-                    self.processVideo(url: editedVideoURL, observer: observer, maxDuration: maxDuration, picker: picker)
-                case .failed: fallthrough
-                case .cancelled:
-                    observer.on(.error(RxMediaPickerError.generalError))
-                    self.dismiss(picker)
-                default: break
+            if let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) {
+                exportSession.outputURL = editedVideoURL
+                exportSession.outputFileType = AVFileType.mov
+                if let editedStart = editedStart, let editedEnd = editedEnd {
+                    let start = Int64(editedStart.doubleValue * 1000)
+                    let end = Int64(editedEnd.doubleValue * 1000)
+                    exportSession.timeRange = CMTimeRange(start: CMTime(value: start, timescale: 1000), duration: CMTime(value: end - start, timescale: 1000))
                 }
-            })
+
+                exportSession.exportAsynchronously(completionHandler: {
+                    switch exportSession.status {
+                    case .completed:
+                        self.processVideo(url: editedVideoURL, observer: observer, maxDuration: maxDuration, picker: picker)
+                    case .failed: fallthrough
+                    case .cancelled:
+                        observer.on(.error(RxMediaPickerError.generalError))
+                        if let picker = picker as? UIImagePickerController  {
+                            self.dismiss(picker)
+                        }
+                        
+                        if #available(iOS 14, *) {
+                            if let picker = picker as? PHPickerViewController  {
+                                self.ph_dismiss(picker)
+                            }
+                        }
+                    default: break
+                    }
+                })
+            }
+        } else {
+            observer.on(.error(RxMediaPickerError.generalError))
+            if let picker = picker as? UIImagePickerController  {
+                dismiss(picker)
+            }
+            
+            if #available(iOS 14, *) {
+                if let picker = picker as? PHPickerViewController  {
+                    ph_dismiss(picker)
+                }
+            }
         }
+
+        
     }
 
     fileprivate func processVideo(url: URL,
                                   observer: AnyObserver<URL>,
                                   maxDuration: TimeInterval,
-                                  picker: UIImagePickerController) {
+                                  picker: Any) {
         let asset = AVURLAsset(url: url)
         let duration = CMTimeGetSeconds(asset.duration)
 
@@ -184,7 +229,15 @@ public enum RxMediaPickerError: Error {
             observer.on(.completed)
         }
 
-        dismiss(picker)
+        if let picker = picker as? UIImagePickerController  {
+            self.dismiss(picker)
+        }
+        
+        if #available(iOS 14, *) {
+            if let picker = picker as? PHPickerViewController  {
+                self.ph_dismiss(picker)
+            }
+        }
     }
 
     fileprivate func present(_ picker: UIImagePickerController) {
@@ -196,6 +249,20 @@ public enum RxMediaPickerError: Error {
     fileprivate func dismiss(_ picker: UIImagePickerController) {
         DispatchQueue.main.async { [weak self] in
             self?.delegate?.dismiss(picker: picker)
+        }
+    }
+    
+    @available(iOS 14, *)
+    fileprivate func  ph_present(_ picker: PHPickerViewController) {
+        DispatchQueue.main.async { [weak self] in
+            self?.delegate?.ph_present(picker: picker)
+        }
+    }
+
+    @available(iOS 14, *)
+    fileprivate func  ph_dismiss(_ picker: PHPickerViewController) {
+        DispatchQueue.main.async { [weak self] in
+            self?.delegate?.ph_dismiss(picker: picker)
         }
     }
 
@@ -223,4 +290,88 @@ public enum RxMediaPickerError: Error {
             }
         }
     }
+    
+    @available(iOS 14, *)
+    public func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        guard !results.isEmpty else {
+            self.ph_dismiss(picker)
+            return
+            
+        }
+            // request image urls
+            let identifier = results.compactMap(\.assetIdentifier)
+            let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: identifier, options: nil)
+            var count = fetchResult.count
+            fetchResult.enumerateObjects {(asset, index, stop) in
+                PHAsset.getURL(ofPhotoWith: asset) {[weak self] (url, info) in
+                    guard let self = self else { return }
+                    if let url = url {
+                      // got image url
+                        if let image = try? UIImage(data: Data(contentsOf: url)) {
+                            if let action = self.currentAction {
+                                switch action {
+                                case .photo(let observer):
+                                    observer.onNext((image, image))
+                                case .video(let observer, let maxDuration):
+                                    self.processVideo(ph_videoUrl: url, observer: observer, maxDuration: maxDuration, picker: picker)
+                                }
+                            }
+                        } else {
+                            if let action = self.currentAction {
+                                switch action {
+                                case .photo(let observer): observer.on(.error(RxMediaPickerError.canceled))
+                                case .video(let observer, _): observer.on(.error(RxMediaPickerError.canceled))
+                                }
+                            }
+                        }
+                       
+                    } else {
+                        if let action = self.currentAction {
+                            switch action {
+                            case .photo(let observer): observer.on(.error(RxMediaPickerError.canceled))
+                            case .video(let observer, _): observer.on(.error(RxMediaPickerError.canceled))
+                            }
+                        }
+                    }
+                    self.ph_dismiss(picker)
+                }
+            }
+        }
+    
+        
+}
+
+
+extension PHAsset {
+    static func getURL(ofPhotoWith mPhasset: PHAsset, completionHandler : @escaping ((_ responseURL : URL?, _ info: [AnyHashable : Any]?) -> Void)) {
+        
+        if mPhasset.mediaType == .image {
+            let options: PHContentEditingInputRequestOptions = PHContentEditingInputRequestOptions()
+            options.canHandleAdjustmentData = {(adjustmeta: PHAdjustmentData) -> Bool in
+                return true
+            }
+            mPhasset.requestContentEditingInput(with: options, completionHandler: { (contentEditingInput, info) in
+                if let fullSizeImageUrl = contentEditingInput?.fullSizeImageURL {
+                    completionHandler(fullSizeImageUrl, info)
+                } else {
+                    completionHandler(nil, info)
+                }
+            })
+        } else if mPhasset.mediaType == .video {
+            let options: PHVideoRequestOptions = PHVideoRequestOptions()
+            options.version = .original
+            PHImageManager.default().requestAVAsset(forVideo: mPhasset, options: options, resultHandler: { (asset, audioMix, info) in
+                if let urlAsset = asset as? AVURLAsset {
+                    let localVideoUrl = urlAsset.url
+                    completionHandler(localVideoUrl, info)
+                } else {
+                    completionHandler(nil, info)
+                }
+            })
+        }
+        
+        
+    }
+    
+    
 }

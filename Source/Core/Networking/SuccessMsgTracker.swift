@@ -63,9 +63,9 @@ public class SuccessMsgTracker: NSObject,SharedSequenceConvertibleType {
         })
     }
 
-    private func increment(_ result: BaseResult?) {
+    private func increment(_ result: RootResult?) {
         _lock.lock()
-        if result?.code == .success {
+        if result?.isSuccess == true {
             if let customMsg = self.customMsg {
                 _relay.accept(customMsg)
 
@@ -85,8 +85,8 @@ public class SuccessMsgTracker: NSObject,SharedSequenceConvertibleType {
     }
 }
 
-extension ObservableConvertibleType where Element: MapResult {
-    func trackSuccessMsg(_ activityIndicator: SuccessMsgTracker, _ msg: String? = nil) -> Observable<Element> {
+public extension ObservableConvertibleType where Element: MapResult {
+    public func trackSuccessMsg(_ activityIndicator: SuccessMsgTracker, _ msg: String? = nil) -> Observable<Element> {
         activityIndicator.customMsg = msg
         return activityIndicator.trackActivityOfObservable(self)
     }

@@ -8,7 +8,7 @@
 import UIKit
 import SnapKit
 open class DefaultTableViewCell: TableViewCell {
-
+    public var containerHeightConstraint: Constraint!
     public lazy var containerStackView: HorizontalStackView = {
         let view = HorizontalStackView()
         view.spacing = 10
@@ -18,12 +18,13 @@ open class DefaultTableViewCell: TableViewCell {
     public lazy var leftStackView: HorizontalStackView = {
         let view = HorizontalStackView()
         view.spacing = 14.wScale
+        view.distribution = .fill
         return view
     }()
     
     public lazy var rightStackView: HorizontalStackView = {
         let view = HorizontalStackView()
-        view.spacing = 10.wScale
+        view.spacing = 8.wScale
         return view
     }()
     
@@ -53,7 +54,7 @@ open class DefaultTableViewCell: TableViewCell {
     
     public lazy var defaultArrowImgV: UIImageView = {
         let imageV = UIImageView()
-        imageV.image = UIImage(named: "arrow_right")
+        imageV.image = SSUtils.image("arrow_right")
         imageV.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         return imageV
     }()
@@ -88,6 +89,7 @@ open class DefaultTableViewCell: TableViewCell {
         rightStackView.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         containerStackView.snp.makeConstraints { (make) in
             make.edges.equalTo(UIEdgeInsets(top: 0, left: 16.wScale, bottom: 0, right: 16.wScale))
+            containerHeightConstraint = make.height.equalTo(55).priority(.high).constraint
         }
         
         defaultRedPoindView.snp.makeConstraints { make in
@@ -97,6 +99,8 @@ open class DefaultTableViewCell: TableViewCell {
         defaultArrowImgV.snp.makeConstraints { make in
             make.size.equalTo(CGSize(width: 6.5.wScale, height: 11.wScale))
         }
+        
+        showImageView(false)
     }
     
     open override func layoutSubviews() {
@@ -105,8 +109,7 @@ open class DefaultTableViewCell: TableViewCell {
     
     open override func bind(_ cellViewModel: CellViewModel) {
         super.bind(cellViewModel)
-        cellViewModel.image.bind(to: defaultImgV.rx.image).disposed(by: disposeBag)
-        cellViewModel.title.bind(to: defaultTitleLab.rx.text).disposed(by: disposeBag)
+       
     }
     
     

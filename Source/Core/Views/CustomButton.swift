@@ -13,14 +13,50 @@ open class CustomButton: Button {
         case topImageBottomText(space: CGFloat = 6, autoSize: Bool = false)
         case leftTitleRigthImage(space: CGFloat = 6, autoSize: Bool)
         case topTextBottomImage(space: CGFloat = 6, autoSize: Bool = false)
+       var space: CGFloat {
+           switch self {
+           case .leftImageRigthText(let space, _): return space
+           case .topImageBottomText(let space, _): return space
+           case .leftTitleRigthImage(let space, _): return space
+           case .topTextBottomImage(let space, _): return space
+
+           }
+       }
     }
-    var imageCenter: CGPoint?
-    var imageOriginX: CGFloat?
-    var titleLabelCneter: CGPoint?
-    var titleLabelOriginX: CGFloat?
-    var contentSize: CGSize = .zero
-    var customImageSize: CGSize = .zero
     
+    public enum Aligentment {
+        case top, left, bottom, right, center
+    }
+    
+    public var imageOrigin: CGPoint? {
+        didSet {
+            setNeedsDisplay()
+            setNeedsLayout()
+        }
+    }
+    public var titleLabelOrigin: CGPoint? {
+        didSet {
+            setNeedsDisplay()
+            setNeedsLayout()
+        }
+    }
+    /// tileLabel 会自动跟随
+    public var imageOriginAutoX: CGFloat? = nil
+
+    
+    public var titleAligentment: Aligentment = .center {
+        didSet {
+            setNeedsDisplay()
+            setNeedsLayout()
+        }
+    }
+    
+    
+    public var contentSize: CGSize = .zero
+    public var customImageSize: CGSize = .zero
+    public var maxWidth: CGFloat? = nil
+    public var minHeight: CGFloat? = nil
+
     open override var isEnabled: Bool {
         didSet {
             self.alpha = isEnabled ? 1 : 0.5
@@ -35,7 +71,7 @@ open class CustomButton: Button {
     }
    
 
-    var contentType: ContentType? {
+    public var contentType: ContentType? {
         didSet {
             guard let _ = contentType else { return }
             setNeedsDisplay()
@@ -43,24 +79,11 @@ open class CustomButton: Button {
         }
     }
     
-    var autoCornerRadious: Bool = false
+    public var autoCornerRadious: Bool = false
     
     open override func layoutSubviews() {
         super.layoutSubviews()
-        if let imageCenter = imageCenter, let imageView = imageView{
-            imageView.center = imageCenter
-        }
-        
-        if let imageOriginX = imageOriginX, let imageView = imageView{
-            imageView.ss_x = imageOriginX
-        }
-        
-        if let titleLabelCenter = titleLabelCneter, let titleLabel = titleLabel{
-            titleLabel.center = titleLabelCenter
-        }
-        if let titleLabelOriginX = titleLabelOriginX, let titleLabel = titleLabel{
-            titleLabel.ss_x = titleLabelOriginX
-        }
+
         
         guard let contentType = contentType else { return }
         switch contentType {
@@ -76,11 +99,19 @@ open class CustomButton: Button {
                 }
                 var titleSize = CGSize.zero
                 if let titleLabel = titleLabel  {
-                    titleLabel.sizeToFit()
-                    titleSize = titleLabel.ss_size
+                    if maxWidth == nil {
+                        titleLabel.sizeToFit()
+                        titleSize = titleLabel.ss_size
+                    } else {
+                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
+                    }
+                    
                 }
                 
-                let height = max(imageSize.height, titleSize.height) + contentEdgeInsets.top + contentEdgeInsets.bottom
+                var height = max(imageSize.height, titleSize.height) + contentEdgeInsets.top + contentEdgeInsets.bottom
+                if let minHeight = minHeight,  height < minHeight {
+                    height = max(minHeight, height)
+                }
                 let width = imageSize.width + space + titleSize.width + contentEdgeInsets.left + contentEdgeInsets.right
                 self.contentSize = CGSize(width: width, height: height)
                 invalidateIntrinsicContentSize()
@@ -104,8 +135,12 @@ open class CustomButton: Button {
                 }
                 var titleSize = CGSize.zero
                 if let titleLabel = titleLabel  {
-                    titleLabel.sizeToFit()
-                    titleSize = titleLabel.ss_size
+                    if maxWidth == nil {
+                        titleLabel.sizeToFit()
+                        titleSize = titleLabel.ss_size
+                    } else {
+                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
+                    }
                 }
 
                 let totalWidth = imageSize.width + space + titleSize.width
@@ -118,6 +153,7 @@ open class CustomButton: Button {
                 if let titleLabel = titleLabel {
                     titleLabel.frame = CGRect(x: titleLabelX, y: (ss_h - titleSize.height)/2, width: titleSize.width, height: titleSize.height)
                 }
+                
 
             }
             
@@ -133,11 +169,18 @@ open class CustomButton: Button {
                 }
                 var titleSize = CGSize.zero
                 if let titleLabel = titleLabel  {
-                    titleLabel.sizeToFit()
-                    titleSize = titleLabel.ss_size
+                    if maxWidth == nil {
+                        titleLabel.sizeToFit()
+                        titleSize = titleLabel.ss_size
+                    } else {
+                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
+                    }
                 }
                 
-                let height = max(imageSize.height, titleSize.height) + contentEdgeInsets.top + contentEdgeInsets.bottom
+                var height = max(imageSize.height, titleSize.height) + contentEdgeInsets.top + contentEdgeInsets.bottom
+                if let minHeight = minHeight,  height < minHeight {
+                    height = max(minHeight, height)
+                }
                 let width = imageSize.width + space + titleSize.width + contentEdgeInsets.left + contentEdgeInsets.right
                 self.contentSize = CGSize(width: width, height: height)
                 invalidateIntrinsicContentSize()
@@ -162,8 +205,12 @@ open class CustomButton: Button {
                 }
                 var titleSize = CGSize.zero
                 if let titleLabel = titleLabel  {
-                    titleLabel.sizeToFit()
-                    titleSize = titleLabel.ss_size
+                    if maxWidth == nil {
+                        titleLabel.sizeToFit()
+                        titleSize = titleLabel.ss_size
+                    } else {
+                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
+                    }
                 }
 
                 let totalWidth = imageSize.width + space + titleSize.width
@@ -197,13 +244,20 @@ open class CustomButton: Button {
                 }
                 var titleSize = CGSize.zero
                 if let titleLabel = titleLabel  {
-                    titleLabel.sizeToFit()
-                    titleSize = titleLabel.ss_size
+                    if maxWidth == nil {
+                        titleLabel.sizeToFit()
+                        titleSize = titleLabel.ss_size
+                    } else {
+                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
+                    }
                     totalHeight += space
                     totalHeight += titleSize.height
                 }
                 
-                let height = totalHeight + contentEdgeInsets.top + contentEdgeInsets.bottom
+                var height = totalHeight + contentEdgeInsets.top + contentEdgeInsets.bottom
+                if let minHeight = minHeight,  height < minHeight {
+                    height = max(minHeight, height)
+                }
                 let width = max(titleSize.width, imageSize.width) + contentEdgeInsets.left + contentEdgeInsets.right
                 self.contentSize = CGSize(width: width, height: height)
                 invalidateIntrinsicContentSize()
@@ -231,8 +285,12 @@ open class CustomButton: Button {
                 }
                 var titleSize = CGSize.zero
                 if let titleLabel = titleLabel  {
-                    titleLabel.sizeToFit()
-                    titleSize = titleLabel.ss_size
+                    if maxWidth == nil {
+                        titleLabel.sizeToFit()
+                        titleSize = titleLabel.ss_size
+                    } else {
+                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
+                    }
                     totalHeight += space
                     totalHeight += titleSize.height
                 }
@@ -263,13 +321,20 @@ open class CustomButton: Button {
                 }
                 var titleSize = CGSize.zero
                 if let titleLabel = titleLabel  {
-                    titleLabel.sizeToFit()
-                    titleSize = titleLabel.ss_size
+                    if maxWidth == nil {
+                        titleLabel.sizeToFit()
+                        titleSize = titleLabel.ss_size
+                    } else {
+                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
+                    }
                     totalHeight += space
                     totalHeight += titleSize.height
                 }
                 
-                let height = totalHeight + contentEdgeInsets.top + contentEdgeInsets.bottom
+                var height = totalHeight + contentEdgeInsets.top + contentEdgeInsets.bottom
+                if let minHeight = minHeight,  height < minHeight {
+                    height = max(minHeight, height)
+                }
                 let width = max(titleSize.width, imageSize.width) + contentEdgeInsets.left + contentEdgeInsets.right
                 self.contentSize = CGSize(width: width, height: height)
                 invalidateIntrinsicContentSize()
@@ -300,8 +365,12 @@ open class CustomButton: Button {
                 }
                 var titleSize = CGSize.zero
                 if let titleLabel = titleLabel  {
-                    titleLabel.sizeToFit()
-                    titleSize = titleLabel.ss_size
+                    if maxWidth == nil {
+                        titleLabel.sizeToFit()
+                        titleSize = titleLabel.ss_size
+                    } else {
+                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
+                    }
                     totalHeight += space
                     totalHeight += titleSize.height
                 }
@@ -324,7 +393,34 @@ open class CustomButton: Button {
             layer.cornerRadius = ss_h / 2
             layer.masksToBounds = true
         }
+        
+        if let imageOrigin = imageOrigin , var imageV = imageView {
+            imageV.ss_origin = CGPoint(x: imageOrigin.x + contentEdgeInsets.left, y: imageOrigin.y + contentEdgeInsets.top)
+            if titleAligentment == .center {
+                titleLabel?.ss_center = CGPoint(x: ss_w / 2, y: ss_h / 2)
+            }
+        }
     
+        if let titleLabelOrigin = titleLabelOrigin, var titleLabel = titleLabel {
+            titleLabel.ss_origin = CGPoint(x: titleLabelOrigin.x + contentEdgeInsets.left, y: titleLabelOrigin.y + contentEdgeInsets.top)
+        }
+        
+        if let imageOriginAutoX = imageOriginAutoX, var imageV = imageView {
+            imageV.ss_x = imageOriginAutoX
+            titleLabel?.ss_x = imageV.ss_maxX + contentType.space
+        }
+    }
+    
+    open override func setTitle(_ title: String?, for state: UIControl.State) {
+        super.setTitle(title, for: state)
+        setNeedsLayout()
+        setNeedsDisplay()
+    }
+    
+    open override func setImage(_ image: UIImage?, for state: UIControl.State) {
+        super.setImage(image, for: state)
+        setNeedsLayout()
+        setNeedsDisplay()
     }
     
     open override var intrinsicContentSize: CGSize {
@@ -351,17 +447,38 @@ open class GradientCustomButton: CustomButton {
     open override class var layerClass: AnyClass {
         return CAGradientLayer.self
     }
-    var gradientLayer: CAGradientLayer {
+    public var gradientLayer: CAGradientLayer {
         return self.layer as! CAGradientLayer
     }
     
-    
+    public var selectedGradientColors: [CGColor]?
+    public var normalGradientColors: [CGColor]? {
+        didSet {
+            if !isSelected {
+                gradientLayer.colors = normalGradientColors
+            }
+        }
+    }
     
     public override init(frame: CGRect) {
         super.init(frame: frame)
         gradientLayer.colors = [UIColor.hex(0x2D8BFF).cgColor, UIColor.hex(0x2080FF).cgColor]
         gradientLayer.startPoint = CGPoint(x: 0, y: 0)
         gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+    }
+    
+    open override var isSelected: Bool {
+        didSet {
+            if let selectedGradientColors = selectedGradientColors {
+                if isSelected {
+                    gradientLayer.colors = selectedGradientColors
+
+                } else {
+                    gradientLayer.colors = normalGradientColors
+
+                }
+            }
+        }
     }
     
     required public init?(coder: NSCoder) {

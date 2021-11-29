@@ -24,7 +24,6 @@ open class View: UIView {
     }
     
     open func make() {
-        backgroundColor = Colors.backgroud
     }
    
     deinit {
@@ -116,12 +115,12 @@ public extension Reactive where Base: View {
 open class  TopRoundedCornerView: View {
     private var roundedLayer: CAShapeLayer!
     private var roundedPath: UIBezierPath!
-    public var topConerRadious: CGFloat = 20
+    public var topConerRadious: CGFloat = 25.wScale
     
     private lazy var topIndicatorView: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor.hex(0x575A66)
-        view.layer.cornerRadius = 4 / 2
+        view.backgroundColor = UIColor.hex(0xF0F0F0)
+        view.layer.cornerRadius = 4.5.wScale / 2
         return view
     }()
     
@@ -133,7 +132,7 @@ open class  TopRoundedCornerView: View {
 
     open override func make() {
         super.make()
-        backgroundColor = UIColor.hex(0x1E1D33)
+        backgroundColor = UIColor.hex(0xFFFFFF)
         roundedLayer = CAShapeLayer()
         roundedLayer.backgroundColor = UIColor.clear.cgColor
         layer.addSublayer(roundedLayer)
@@ -141,9 +140,10 @@ open class  TopRoundedCornerView: View {
         addSubview(topIndicatorView)
         topIndicatorView.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
-            make.top.equalTo(12)
-            make.size.equalTo(CGSize(width: 50, height: 4))
+            make.top.equalTo(13.wScale)
+            make.size.equalTo(CGSize(width: 40, height: 4.5).wScale)
         }
+        isHideTopLine = true
     }
     
     open override func layoutSubviews() {
@@ -156,11 +156,16 @@ open class  TopRoundedCornerView: View {
 
 
 open class AllRoundedCornerView: View {
-    
+    public var conerRadious: CGFloat = 20.wScale {
+        didSet {
+            layer.cornerRadius = conerRadious
+        }
+    }
+
     open override func make() {
         super.make()
         backgroundColor = UIColor.hex(0x1E1D33)
-        layer.cornerRadius = 15
+        layer.cornerRadius = conerRadious
         layer.masksToBounds = true
     }
 }

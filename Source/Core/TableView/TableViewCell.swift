@@ -12,7 +12,7 @@ import RxCocoa
 open class TableViewCell: UITableViewCell {
     public var disposeBag = DisposeBag()
     
-    private lazy var lineView: UIView = {
+    public lazy var lineView: UIView = {
         let lineView = UIView()
         lineView.backgroundColor = Colors.line
         return lineView
@@ -29,7 +29,10 @@ open class TableViewCell: UITableViewCell {
         }
     }
     
+    open var lineHeight: CGFloat = 0.5
+    
     open var isCellSelected: Bool = false
+    
     
     open var selectedBackgroundColor: UIColor? = nil {
         didSet {
@@ -68,7 +71,7 @@ open class TableViewCell: UITableViewCell {
     
     open override func layoutSubviews() {
         super.layoutSubviews()
-        lineView.frame = CGRect(x: separatorInset.left, y: self.frame.height - separatorInset.bottom - 0.5, width: self.frame.width - separatorInset.left - separatorInset.right, height: 0.5)
+        lineView.frame = CGRect(x: separatorInset.left, y: self.frame.height - separatorInset.bottom - lineHeight, width: self.frame.width - separatorInset.left - separatorInset.right, height: lineHeight)
         customSelectedBackgroundView.frame = CGRect(x: 0, y: 0, width: frame.width, height: frame.height)
     }
     
@@ -86,7 +89,9 @@ open class TableViewCell: UITableViewCell {
         self.customSelectedBackgroundView.alpha = selected ? 1 : 0
         // Configure the view for the selected state
     }
-
+    deinit {
+        logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
+    }
     
 }
 

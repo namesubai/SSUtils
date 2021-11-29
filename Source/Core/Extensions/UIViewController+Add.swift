@@ -11,7 +11,7 @@ import NSObject_Rx
 public extension UIViewController {
     enum ButtonItemType {
         case title(title: String, color: UIColor? = Colors.subTitle, font: UIFont = UIFont.systemFont(ofSize: 18))
-        case image(name: String)
+        case image(_ image: UIImage?)
         case custom(customView: UIView)
     }
     
@@ -46,8 +46,8 @@ public extension UIViewController {
                 }
             }).disposed(by: rx.disposeBag)
             return barButtonItem
-        case .image(let name):
-            let barButtonItem = UIBarButtonItem(image: UIImage(named: name)?.withRenderingMode(.alwaysOriginal), style: .plain, target: nil, action: nil)
+        case .image(let image):
+            let barButtonItem = UIBarButtonItem(image: image?.withRenderingMode(.alwaysOriginal), style: .plain, target: nil, action: nil)
             self.navigationItem.setLeftBarButtonItems([barButtonItem], animated: animated)
             barButtonItem.rx.tap.asObservable().subscribe(onNext:{
                 if onTigger != nil {
@@ -80,8 +80,8 @@ public extension UIViewController {
                 }
             }).disposed(by: rx.disposeBag)
             return barButtonItem
-        case .image(let name):
-            let barButtonItem = UIBarButtonItem(image: UIImage(named: name)?.withRenderingMode(.alwaysOriginal), style: .plain, target: nil, action: nil)
+        case .image(let image):
+            let barButtonItem = UIBarButtonItem(image: image?.withRenderingMode(.alwaysOriginal), style: .plain, target: nil, action: nil)
             self.navigationItem.setRightBarButtonItems([barButtonItem], animated: animated)
             barButtonItem.rx.tap.asObservable().subscribe(onNext:{
                 if onTigger != nil {
@@ -153,4 +153,16 @@ public extension UIViewController {
     var isNavigationRootViewController: Bool {
         self.navigationController?.viewControllers.first == self
     }
+    
+    var previousViewController: UIViewController?  {
+        if let currentIndex = navigationController?.viewControllers.firstIndex(where: {$0 == self}) {
+            if currentIndex > 0 {
+                let lastIndex = currentIndex - 1
+                return navigationController?.viewControllers[lastIndex]
+            }
+        }
+        
+        return nil
+    }
 }
+

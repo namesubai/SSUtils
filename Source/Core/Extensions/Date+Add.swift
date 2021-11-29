@@ -14,54 +14,207 @@ import Darwin
 import Glibc
 #endif
 
+enum AgoString {
+    case second
+    case minute
+    case hour
+    case day
+    case week
+    case month
+    case year
+    
+    var single: String {
+        switch self {
+        case .second: return "second ago"
+        case .minute: return "minute ago"
+        case .hour: return "hour ago"
+        case .day: return "day ago"
+        case .week: return "week ago"
+        case .month: return "month ago"
+        case .year: return "year ago"
+        }
+    }
+    
+    var plural: String {
+        switch self {
+        case .second: return "seconds ago"
+        case .minute: return "minutes ago"
+        case .hour: return "hours ago"
+        case .day: return "days ago"
+        case .week: return "weeks ago"
+        case .month: return "months ago"
+        case .year: return "years ago"
+        }
+    }
+    
+}
+
+extension Int {
+    func agoString(ago: AgoString) -> String {
+        if self > 1 {
+          return "\(self)" + " " + ago.plural
+        } else {
+            return "\(self)" + " " + ago.single
+        }
+    }
+}
+
 public extension Date {
     var dateAgoString: String {
         let now = Date()
-        let second = now.secondsSince(self)
+        let second = max(0, now.secondsSince(self))
+        if second < 4 {
+            return "now"
+        }
         if second < 60 {
-            let string = "\(Int(second))" + " " + NSLocalizedString("SecondsAgo", comment: "")
-            return string
+            return Int(second).agoString(ago: .second)
         }
         
         let minute = now.minutesSince(self)
         if  minute < 60 {
-            let string = "\(Int(minute))" + " " + NSLocalizedString("MinuteAgo", comment: "")
-             return string
+            return Int(minute).agoString(ago: .minute)
         }
         
         
         let hours = now.hoursSince(self)
         if  hours < 24 {
-            let string = "\(Int(hours))" + " " + NSLocalizedString("HoursAgo", comment: "")
-             return string
+            return Int(hours).agoString(ago: .hour)
         }
         
         let days = now.daysSince(self)
         if  days < 7 {
-            let string = "\(Int(days))" + " " + NSLocalizedString("DagsAgo", comment: "")
-             return string
+            return Int(days).agoString(ago: .day)
+
         }
         
-        let weak = now.weekSince(self)
-        if  weak < 30/7 {
-            let string = "\(Int(weak))" + " " + NSLocalizedString("WeaksAgo", comment: "")
-             return string
+        let week = now.weekSince(self)
+        if  week < 30/7 {
+            return Int(week).agoString(ago: .week)
+
         }
         
         let months = now.monthSince(self)
-        let string = "\(Int(months))" + " " + NSLocalizedString("MonthsAgo", comment: "")
-        return string
+        return Int(months).agoString(ago: .month)
         
     }
+    
+    var yearDateAgoString: String {
+        let now = Date()
+        
+        let minute = now.minutesSince(self)
+        if minute < 1 {
+            return "now"
+        }
+        if  minute < 60 {
+            return Int(minute).agoString(ago: .minute)
+        }
+        
+        
+        let hours = now.hoursSince(self)
+        if  hours < 24 {
+            return Int(hours).agoString(ago: .hour)
+        }
+        
+        let days = now.daysSince(self)
+        if  days < 7 {
+            return Int(days).agoString(ago: .day)
+        }
+        
+        let week = now.weekSince(self)
+        if  week < 30/7 {
+            return Int(week).agoString(ago: .week)
+        }
+        let months = now.monthSince(self)
+        if months < 12 {
+            return Int(months).agoString(ago: .month)
+        }
+
+        let year = now.yearSince(self)
+        return Int(year).agoString(ago: .year)
+
+        
+    }
+    
+    
+    var dayAgoString: String {
+        let now = Date()
+        
+        let minute = now.minutesSince(self)
+        if minute < 1 {
+            return "now"
+        }
+        if  minute < 60 {
+            return Int(minute).agoString(ago: .minute)
+        }
+        
+        
+        let hours = now.hoursSince(self)
+        if  hours < 24 {
+            return Int(hours).agoString(ago: .hour)
+        }
+        
+        let days = now.daysSince(self)
+        return Int(days).agoString(ago: .day)
+        
+    }
+    
+    
+    var secondAgoString: String {
+        let now = Date()
+        let second = now.secondsSince(self)
+        if second < 60 {
+            let string = "now"
+            return string
+        } else if isInToday {
+           return self.string(withFormat: "HH:mm")
+        }
+        return self.string(withFormat: "MMM dd, yyyy")
+    }
+    
+    func minuteAgoString(fromDate: Date?) -> String {
+        if fromDate == nil {
+            let minute = Date().minutesSince(self)
+            let year = Date().monthSince(self)
+            if minute <= 60 * 24 {
+               return self.string(withFormat: "HH:mm")
+            } else if year <= 12 {
+                return self.string(withFormat: "MMM dd, HH:mm")
+            }
+            else {
+                return self.string(withFormat: "MMM dd, yyyy")
+            }
+        } else {
+            let minuteInterval = self.minutesSince(fromDate!)
+            let year = Date().monthSince(self)
+            let minute = Date().minutesSince(self)
+
+            if minuteInterval <= 5 {
+                let string = ""
+                return string
+            } else if minute <= 60 * 24 {
+               return self.string(withFormat: "HH:mm")
+            } else if year <= 12 {
+                return self.string(withFormat: "MMM dd, HH:mm")
+            } else {
+                return self.string(withFormat: "MMM dd, yyyy")
+            }
+        }
+        
+    }
+  
 }
 
-extension Date {
+public extension Date {
     func weekSince(_ date: Date) -> Double {
         return timeIntervalSince(date)/(3600*24*7)
     }
     
     func monthSince(_ date: Date) -> Double {
         return timeIntervalSince(date)/(3600*24*30)
+    }
+    
+    func yearSince(_ date: Date) -> Double {
+        return timeIntervalSince(date)/(3600*24*30*12)
     }
 }
 
@@ -1077,4 +1230,16 @@ public extension Date {
     }
 
 }
+
+
 #endif
+
+
+public extension String {
+    func date(format: String) -> Date? {
+        let d = DateFormatter()
+        d.dateFormat = format
+        let date = d.date(from: self)
+        return date
+    }
+}

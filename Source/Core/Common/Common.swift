@@ -27,6 +27,7 @@ public struct Colors {
 
 
 public struct App {
+    public static let shared = App()
     public static var bundleIdentifier: String = {
         if let bundleIdentifier = Bundle.main.bundleIdentifier {
             return bundleIdentifier
@@ -59,7 +60,16 @@ public struct App {
         guard #available(iOS 11.0, *) else {
             return false
         }
-        return UIApplication.shared.windows[0].safeAreaInsets != UIEdgeInsets.zero
+        return UIApplication.shared.statusBarFrame.height != 20
+    }()
+    
+    public static var isiPhoneXR: Bool = {
+        if let size = UIScreen.main.currentMode?.size {
+            if CGSize(width: 828, height: 1792) == size || CGSize(width: 750, height: 1624) == size  {
+                return true
+            }
+        }
+        return false
     }()
     
     public static var safeAreaInsets: UIEdgeInsets = {
@@ -90,9 +100,28 @@ public struct App {
     public static let statusBarHeight = UIApplication.shared.statusBarFrame.size.height
     public static let navBarHeight: CGFloat = 44
     public static let navAndStatusBarHeight = statusBarHeight +  navBarHeight
-    public static let widthScale = width / 375.0
-    public static let heigtScale = height / 812.0
+    public static let widthScale = (width / 375.0)
+    public static let heigtScale = (height / 812.0)
+    public static let fontScale = min(App.width, App.height) / 375.0
+
     public static var navBackImage: UIImage? = nil
+    public static var isHideTabBarWhenPush: Bool = true
+    public static var navBarTitleFont: UIFont = Fonts.semiBold(18)
+    public static var headerCustomLodingView: (() -> UIView?)? = nil
+    public static var footerCustomLodingView: (() -> UIView?)? = nil
+    public static var emptyNotNetworkImage: UIImage? = nil
+    public static var emptyNotNetworkText: String? = nil
+    public static var emptyNotNetworkTextFont: UIFont? = nil
+    public static var emptyNotNetworkTextColor: UIColor? = nil
+    public static var emptyTitleFont: UIFont? = nil
+    public static var emptyTitleColor: UIColor? = nil
+    public static var emptyButtonTitleFont: UIFont? = nil
+    public static var emptyButtonTitleColor: UIColor? = nil
+
+    var serviceErrorHandle:(() -> Void)?
+    public mutating func serviceErrorHandle(block:@escaping () -> Void) {
+        self.serviceErrorHandle = block
+    }
 }
 
 
@@ -143,7 +172,7 @@ public struct Fonts {
     }
     
     public static func autoSize(size: CGFloat) -> CGFloat {
-        ceil(size * (min(App.width, App.height) / 375.0))
+        ceil(size * App.fontScale)
     }
 }
 
@@ -159,6 +188,7 @@ extension UIFont {
 
 public struct Paths {
     public static let Documents = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
+    public static let Library = NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true)[0]
     public static let Tmp = NSTemporaryDirectory()
 }
 
@@ -168,50 +198,91 @@ public struct Notifications {
 }
 
 
-extension CGFloat {
-    var widthScale: CGFloat {
+public extension CGFloat {
+    var wScale: CGFloat {
         return self * App.widthScale
     }
-    var heightScale: CGFloat {
+    var hScale: CGFloat {
         return self * App.heigtScale
     }
 
+    var fontScale: CGFloat {
+        ceil(self * App.fontScale)
+    }
 }
 
-extension Int {
+public extension Int {
     var wScale: CGFloat {
         return CGFloat(self) * App.widthScale
     }
     var hScale: CGFloat {
         return CGFloat(self) * App.heigtScale
     }
+    var fontScale: CGFloat {
+        ceil(CGFloat(self) * App.fontScale)
+    }
+}
+
+
+public extension Double {
+    var wScale: CGFloat {
+        return CGFloat(self) * App.widthScale
+    }
+    var hScale: CGFloat {
+        return CGFloat(self) * App.heigtScale
+    }
+    var fontScale: CGFloat {
+        ceil(CGFloat(self) * App.fontScale)
+    }
+}
+
+
+public extension Float {
+    var wScale: CGFloat {
+        return CGFloat(self) * App.widthScale
+    }
+    var hScale: CGFloat {
+        return CGFloat(self) * App.heigtScale
+    }
+    var fontScale: CGFloat {
+        ceil(CGFloat(self) * App.fontScale)
+    }
+}
+
+public extension UIEdgeInsets {
+    var wScale: UIEdgeInsets {
+        return scale(App.widthScale)
+    }
+    var hScale: UIEdgeInsets {
+        return  scale(App.heigtScale)
+    }
+}
+
+public extension CGSize {
+    var wScale: CGSize {
+        return scale(App.widthScale)
+    }
+    var hScale: CGSize {
+        return  scale(App.heigtScale)
+    }
+}
+
+
+public func logDebug(_ message: String) {
+    #if DEBUG
+    print(message)
+    #endif
+}
+
+class Class {
     
 }
 
-
-extension Double {
-    var wScale: CGFloat {
-        return CGFloat(self) * App.widthScale
-    }
-    var hScale: CGFloat {
-        return CGFloat(self) * App.heigtScale
-    }
-}
-
-
-extension Float {
-    var wScale: CGFloat {
-        return CGFloat(self) * App.widthScale
-    }
-    var hScale: CGFloat {
-        return CGFloat(self) * App.heigtScale
-    }
+public func image(_ name: String) -> UIImage? {
+    let image = UIImage(named: name, in: Bundle(for: Class.self), compatibleWith: nil)
+    return image
 }
 
 
 
-public func logDebug(_ message: @autoclosure () -> String) {
-    #if DEBUG
-    DDLogDebug(message())
-    #endif
-}
+

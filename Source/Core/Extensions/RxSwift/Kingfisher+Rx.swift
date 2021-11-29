@@ -10,7 +10,7 @@ import RxCocoa
 import RxSwift
 import Kingfisher
 
-extension Reactive where Base: UIButton {
+public extension Reactive where Base: UIButton {
     public func imageUrl(withPlaceholder placeholderImage: UIImage?, options: KingfisherOptionsInfo? = []) -> Binder<String?> {
         return Binder(self.base, binding: { (button, url) in
             guard let url = url else {  return }
@@ -19,7 +19,7 @@ extension Reactive where Base: UIButton {
     }
 }
 
-extension Reactive where Base: UIImageView {
+public extension Reactive where Base: UIImageView {
 
     public var imageURL: Binder<URL?> {
         return self.imageURL(withPlaceholder: nil)
@@ -47,7 +47,7 @@ extension Reactive where Base: UIImageView {
         options.append(.forceTransition)
 
         return Binder(self.base, binding: { (imageView, url) in
-//            imageView.kf.indicatorType = .activity
+            imageView.kf.indicatorType = .activity
             guard let url = url else {  return }
             imageView.kf.setImage(with: URL(string: url),
                                   placeholder: placeholderImage,
@@ -87,7 +87,7 @@ extension Reactive where Base: UIImageView {
 
 extension ImageCache: ReactiveCompatible {}
 
-extension Reactive where Base: ImageCache {
+public extension Reactive where Base: ImageCache {
 
     func retrieveCacheSize() -> Observable<Int> {
         return Single.create { single in

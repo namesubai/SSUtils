@@ -36,3 +36,14 @@ public extension UIButton {
         return button
     }
 }
+
+
+public extension UIButton {
+    func changeImageColor(_ color: UIColor) {
+        if let image = image(for: .normal) {
+            if let image = image.colorImage(color: color)?.withRenderingMode(.alwaysOriginal){
+                setImage(image, for: .normal)
+            }
+        }
+    }
+}

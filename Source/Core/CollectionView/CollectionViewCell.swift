@@ -11,7 +11,7 @@ import RxSwift
 
 open class CollectionViewCell: UICollectionViewCell {
     
-    var disposeBag = DisposeBag()
+    public var disposeBag = DisposeBag()
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -28,5 +28,9 @@ open class CollectionViewCell: UICollectionViewCell {
     
     required public init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    deinit {
+        logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
     }
 }

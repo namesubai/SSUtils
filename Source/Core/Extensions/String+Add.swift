@@ -7,6 +7,7 @@
 
 import Foundation
 import CommonCrypto
+import YYText
 
 public extension String {
     
@@ -144,7 +145,7 @@ public extension String {
 public extension String {
     func hmac(by algorithm: Algorithm, key: [UInt8]) -> [UInt8] {
         var result = [UInt8](repeating: 0, count: algorithm.digestLength())
-        CCHmac(algorithm.algorithm(), key, key.count, self.bytes, self.bytes.count, &result)
+        CCHmac(algorithm.algorithm(), key, key.count, self.ss_bytes, self.ss_bytes.count, &result)
         return result
     }
     
@@ -154,6 +155,27 @@ public extension String {
     
     func hash(by algorithm: Algorithm) -> [UInt8] {
         return algorithm.hash(string: self)
+    }
+    
+    /// MD5加密
+    func ss_md5() -> String {
+        let string = cString(using: String.Encoding.utf8)
+        
+        let stringLength = CUnsignedInt(lengthOfBytes(using: String.Encoding.utf8))
+        
+        let digestLength = Int(CC_MD5_DIGEST_LENGTH)
+        
+        let result = UnsafeMutablePointer<CUnsignedChar>.allocate(capacity: digestLength)
+        
+        CC_MD5(string!, stringLength, result)
+        
+        let hash = NSMutableString()
+        
+        for iii in 0 ..< digestLength { hash.appendFormat("%02x", result[iii]) }
+        
+        result.deinitialize(count: digestLength)
+        
+        return String(format: hash as String)
     }
 }
 
@@ -189,12 +211,12 @@ public enum Algorithm {
     func hash(string: String) -> [UInt8] {
         var hash = [UInt8](repeating: 0, count: self.digestLength())
         switch self {
-        case .MD5:    CC_MD5(   string.bytes, CC_LONG(string.bytes.count), &hash)
-        case .SHA1:   CC_SHA1(  string.bytes, CC_LONG(string.bytes.count), &hash)
-        case .SHA224: CC_SHA224(string.bytes, CC_LONG(string.bytes.count), &hash)
-        case .SHA256: CC_SHA256(string.bytes, CC_LONG(string.bytes.count), &hash)
-        case .SHA384: CC_SHA384(string.bytes, CC_LONG(string.bytes.count), &hash)
-        case .SHA512: CC_SHA512(string.bytes, CC_LONG(string.bytes.count), &hash)
+        case .MD5:    CC_MD5(   string.ss_bytes, CC_LONG(string.ss_bytes.count), &hash)
+        case .SHA1:   CC_SHA1(  string.ss_bytes, CC_LONG(string.ss_bytes.count), &hash)
+        case .SHA224: CC_SHA224(string.ss_bytes, CC_LONG(string.ss_bytes.count), &hash)
+        case .SHA256: CC_SHA256(string.ss_bytes, CC_LONG(string.ss_bytes.count), &hash)
+        case .SHA384: CC_SHA384(string.ss_bytes, CC_LONG(string.ss_bytes.count), &hash)
+        case .SHA512: CC_SHA512(string.ss_bytes, CC_LONG(string.ss_bytes.count), &hash)
         }
         return hash
     }
@@ -214,7 +236,7 @@ public extension Array where Element == UInt8 {
 }
 
 public extension String {
-    var bytes: [UInt8] {
+    var ss_bytes: [UInt8] {
         return [UInt8](self.utf8)
     }
 }
@@ -254,5 +276,100 @@ public extension Int {
             remainSecondsStr = "0" + remainSecondsStr
         }
         return minuteStr + ":" + remainSecondsStr
+    }
+}
+
+
+public extension String {
+    var isLength : Bool {
+        if self != nil {
+            return self.count > 0
+        }
+        return  false
+    }
+}
+
+public extension NSAttributedString {
+    var isLength : Bool {
+        return  (self ?? NSAttributedString(string: "")).length > 0
+    }
+}
+
+
+private let emailRegex = "[A-Z0-9a-z._%+]+@[A-Za-z0-9.]+\\.[A-Za-z]{2,4}"
+let urlRegex = "(https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]"
+public extension String {
+    
+    public enum TextTapActoin {
+        case url(url: String)
+        case email(email: String)
+    }
+    
+    func rangesOfString(pattern: String) -> [NSRange] {
+        if let expression = try? NSRegularExpression(pattern: pattern, options: []) {
+            let matches = expression.matches(in: self, range: NSRange(self.startIndex...,in: self))
+            var ranges = [NSRange]()
+            for match in matches {
+                ranges.append(match.range)
+            }
+            return ranges
+        }
+        return []
+    }
+    
+    func urlRangesOfString() -> [NSRange] {
+        return rangesOfString(pattern: urlRegex)
+    }
+    
+    func emailRangesOfString() -> [NSRange] {
+        return rangesOfString(pattern: emailRegex)
+    }
+    
+    func transformFormatAttrString(color: UIColor,
+                                   formatColor: UIColor,
+                                   font: UIFont,
+                                   formatFont: UIFont? = nil,
+                                   contentWidth: CGFloat,
+                                   numberLines: Int = 0,
+                                   selectBackgroundColor: UIColor? = UIColor.hex(0xf2f2f2), formatOnTrigger: ((TextTapActoin) -> Void)?) -> (string: NSAttributedString, size: CGSize, isHasTail: Bool) {
+        let attr = NSMutableAttributedString(string: self)
+        attr.yy_color = color
+        attr.yy_font = font
+        let urlRangs = self.urlRangesOfString()
+        for rang in urlRangs {
+            attr.yy_setFont(formatFont ?? font, range: rang)
+            attr.yy_setColor(formatColor, range: rang)
+            
+            attr.yy_setTextHighlight(rang, color: formatColor, backgroundColor: selectBackgroundColor) { _, str, range, aa in
+                if let trigger = formatOnTrigger {
+                    trigger(.url(url: str.attributedSubstring(from: range).string))
+                }
+            }
+        }
+        
+        let emailRangs = self.emailRangesOfString()
+        for range in emailRangs {
+            attr.yy_setTextHighlight(range, color: formatColor, backgroundColor: selectBackgroundColor){ _, str, _, _ in
+                if let trigger = formatOnTrigger {
+                    trigger(.email(email: str.attributedSubstring(from: range).string))
+                }
+            }
+        }
+        let textContainer = YYTextContainer(size: CGSize(width: contentWidth, height: CGFloat(MAXFLOAT)))
+        textContainer.insets = .zero
+        textContainer.maximumNumberOfRows = UInt(numberLines)
+        let layout = YYTextLayout(container: textContainer, text: attr)
+        return (attr, layout?.textBoundingSize ?? .zero, layout?.range != layout?.visibleRange)
+    }
+    
+   
+}
+
+
+public extension String {
+    var isValidEmail: Bool {
+        // http://emailregex.com/
+        let regex = "^(?:[\\p{L}0-9!#$%\\&'*+/=?\\^_`{|}~-]+(?:\\.[\\p{L}0-9!#$%\\&'*+/=?\\^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[\\p{L}0-9](?:[a-z0-9-]*[\\p{L}0-9])?\\.)+[\\p{L}0-9](?:[\\p{L}0-9-]*[\\p{L}0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[\\p{L}0-9-]*[\\p{L}0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])$"
+        return range(of: regex, options: .regularExpression, range: nil, locale: nil) != nil
     }
 }

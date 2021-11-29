@@ -30,6 +30,10 @@ public extension UIColor {
         return self.hex(hex, alpha: alpha) ?? .clear
     }
     
+    static func rhex(_ hex: Int, alpha: CGFloat = 1) -> UIColor {
+        return self.hex(hex, alpha: alpha) ?? .clear
+    }
+    
     static func hex(_ hexString: String, alpha: CGFloat = 1) -> UIColor {
         return self.hex(hexString, alpha: alpha) ?? .clear
     }
