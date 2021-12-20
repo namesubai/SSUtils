@@ -43,7 +43,7 @@ public enum ServiceError: Swift.Error{
             #if DEBUG
             return  "解析数据错误"
             #else
-            return "The Connection with the Server has failed. Please try again"
+            return localized(name: "network_error_common_msg")
             #endif
         case .customError(let msg) :
             return msg
@@ -59,7 +59,7 @@ public enum ServiceError: Swift.Error{
             #if DEBUG
             return "解析数据错误"
             #else
-            return "The Connection with the Server has failed. Please try again"
+            return localized(name: "network_error_common_msg")
             #endif
         case .customError(let msg) :
             return msg

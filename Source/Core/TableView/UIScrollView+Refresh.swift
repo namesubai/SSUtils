@@ -45,7 +45,7 @@ public class CustomFooterRefreshView: MJRefreshAutoNormalFooter {
         stateLabel?.isHidden = true
         isRefreshingTitleHidden = true
         triggerAutomaticallyRefreshPercent = 0.1
-        setTitle("No more data", for: .noMoreData)
+        setTitle(localized(name: "nomoreData"), for: .noMoreData)
         setTitle("", for: .idle)
         setTitle("", for: .pulling)
         setTitle("", for: .refreshing)

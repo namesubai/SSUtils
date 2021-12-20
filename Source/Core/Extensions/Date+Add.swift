@@ -25,25 +25,26 @@ enum AgoString {
     
     var single: String {
         switch self {
-        case .second: return "second ago"
-        case .minute: return "minute ago"
-        case .hour: return "hour ago"
-        case .day: return "day ago"
-        case .week: return "week ago"
-        case .month: return "month ago"
-        case .year: return "year ago"
+        case .second: return localized(name: "second_ago")
+        case .minute: return localized(name: "minute_ago")
+        case .hour: return localized(name: "hour_ago")
+        case .day: return localized(name: "day_ago")
+        case .week: return localized(name: "week_ago")
+        case .month: return localized(name: "month_ago")
+        case .year: return localized(name: "year_ago")
+            
         }
     }
     
     var plural: String {
         switch self {
-        case .second: return "seconds ago"
-        case .minute: return "minutes ago"
-        case .hour: return "hours ago"
-        case .day: return "days ago"
-        case .week: return "weeks ago"
-        case .month: return "months ago"
-        case .year: return "years ago"
+        case .second: return localized(name: "seconds_ago")
+        case .minute: return localized(name: "minutes_ago")
+        case .hour: return localized(name: "hours_ago")
+        case .day: return localized(name: "days_ago")
+        case .week: return localized(name: "weeks_ago")
+        case .month: return localized(name: "months_ago")
+        case .year: return localized(name: "years_ago")
         }
     }
     
@@ -64,7 +65,7 @@ public extension Date {
         let now = Date()
         let second = max(0, now.secondsSince(self))
         if second < 4 {
-            return "now"
+            return localized(name: "now")
         }
         if second < 60 {
             return Int(second).agoString(ago: .second)
@@ -103,7 +104,7 @@ public extension Date {
         
         let minute = now.minutesSince(self)
         if minute < 1 {
-            return "now"
+            return localized(name: "now")
         }
         if  minute < 60 {
             return Int(minute).agoString(ago: .minute)
@@ -141,7 +142,7 @@ public extension Date {
         
         let minute = now.minutesSince(self)
         if minute < 1 {
-            return "now"
+            return localized(name: "now")
         }
         if  minute < 60 {
             return Int(minute).agoString(ago: .minute)
@@ -163,7 +164,7 @@ public extension Date {
         let now = Date()
         let second = now.secondsSince(self)
         if second < 60 {
-            let string = "now"
+            let string = localized(name: "now")
             return string
         } else if isInToday {
            return self.string(withFormat: "HH:mm")

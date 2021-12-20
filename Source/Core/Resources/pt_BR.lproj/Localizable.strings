@@ -1,0 +1,22 @@
+
+"noInternetAccess" = "Sem acesso à Internet";
+"second_ago" = "segundo atrás";
+"minute_ago" = "minuto atrás";
+"hour_ago" = "hora atrás";
+"day_ago" = "dia atrás";
+"week_ago" = "semanas atrás";
+"month_ago" = "mês atrás";
+"year_ago" = " ano atrás";
+
+"seconds_ago" = "segundos atrás";
+"minutes_ago" = "minutos atrás";
+"hours_ago" = "horas atrás";
+"days_ago" = "dias atrás";
+"weeks_ago" = "semanas atrás";
+"months_ago" = "meses atrás";
+"years_ago" = "anos atrás";
+"now" = "Agora";
+
+"network_error_common_msg" = "A conexão com o servidor falhou. Por favor, tente novamente.";
+"nomoreData" = "Sem mais dados";
+

@@ -368,7 +368,7 @@ public extension NetworkingProvider {
                 var request: Observable<T>
                 request = self.requestObject(target, type: type, result: result).asObservable().onlyObject()
                 var dispose: Disposable?
-                dispose = request.subscribe(onNext: {
+                dispose = request.observe(on: ConcurrentDispatchQueueScheduler(queue: DispatchQueue.global())).subscribe(onNext: {
                     (map) in
                     let object = CacheObject<T>(dataType: CachDataType.network(result: map))
                     network.onNext(object)
@@ -409,7 +409,7 @@ public extension NetworkingProvider {
           
             return Disposables.create {
             }
-        }.share()
+        }.observe(on: MainScheduler.instance).share()
         
     }
     
@@ -420,7 +420,7 @@ public extension NetworkingProvider {
                 var request: Observable<[T]>
                 request = self.requestArray(target, type: type, result: result).asObservable().onlyObject()
                 var dispose: Disposable?
-                dispose = request.subscribe(onNext: {
+                dispose = request.observe(on: ConcurrentDispatchQueueScheduler(queue: DispatchQueue.global())).subscribe(onNext: {
                     (mapArray) in
                     let object = CacheObjectArray<T>(dataType: CachDataType.network(result: mapArray))
                     network.onNext(object)
@@ -462,7 +462,7 @@ public extension NetworkingProvider {
             return Disposables.create {
 
             }
-        }.share()
+        }.observe(on: MainScheduler.instance).share()
         
     }
 }

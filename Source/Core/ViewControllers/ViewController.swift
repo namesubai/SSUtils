@@ -210,9 +210,9 @@ open class ViewController: UIViewController,Navigatale {
                 }
                 
                 if error.errorCode == 6 {
-                    self.toastOnView?.showTextHUD("No Internet Access")
+                    self.toastOnView?.showTextHUD(localized(name: "noInternetAccess"))
                 } else {
-                    self.toastOnView?.showTextHUD("The Connection with the Server has failed. Please try again.")
+                    self.toastOnView?.showTextHUD(localized(name: "network_error_common_msg"))
                 }
             }
             else {

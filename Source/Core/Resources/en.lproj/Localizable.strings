@@ -1,8 +1,21 @@
 
-"SecondsAgo" = "secondsAgo";
-"MinuteAgo" = "minuteAgo";
-"HoursAgo" = "hoursAgo";
-"DagsAgo" = "dagsAgo";
-"WeaksAgo" = "weaksAgo";
-"MonthsAgo" = "monthsAgo";
+"noInternetAccess" = "No Internet Access";
+"second_ago" = "second ago";
+"minute_ago" = "minute ago";
+"hour_ago" = "hour ago";
+"day_ago" = "day ago";
+"week_ago" = "week ago";
+"month_ago" = "month ago";
+"year_ago" = "year ago";
 
+"seconds_ago" = "seconds ago";
+"minutes_ago" = "minutes ago";
+"hours_ago" = "hours ago";
+"days_ago" = "days ago";
+"weeks_ago" = "weeks ago";
+"months_ago" = "months ago";
+"years_ago" = "years ago";
+"now" = "now";
+
+"network_error_common_msg" = "The Connection with the Server has failed. Please try again";
+"nomoreData" = "No more data";

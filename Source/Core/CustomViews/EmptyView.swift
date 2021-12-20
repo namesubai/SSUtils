@@ -201,12 +201,12 @@ public extension UIView {
             return emptyView
         } else {
             let image = App.emptyNotNetworkImage ?? image("notNetwork")
-            let text = App.emptyNotNetworkText ?? "No Internet Access"
+            let text = App.emptyNotNetworkText ?? localized(name: "noInternetAccess")
             let emptyView = EmptyView(image: image,
                                       text: text,
                                       textFont: App.emptyTitleFont ?? UIFont.systemFont(ofSize: 16),
                                       textColor: App.emptyTitleColor ?? UIColor.hex(0xcccccc),
-                                      buttonTitle: "Refresh",
+                                      buttonTitle: localized(name: "refresh"),
                                       buttonTitleFont: App.emptyButtonTitleFont ?? UIFont.systemFont(ofSize: 16),
                                       buttonTitleColor: App.emptyButtonTitleColor ?? UIColor.hex(0xcccccc),
                                       buttonTrigger: retry)
