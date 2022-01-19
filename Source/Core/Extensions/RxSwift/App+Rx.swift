@@ -8,6 +8,7 @@
 import Foundation
 import RxSwift
 import YYText
+import UIKit
 
 public extension Reactive where Base: UILabel {
     var textColor: Binder<UIColor?> {
@@ -35,5 +36,15 @@ public extension Reactive where Base: YYLabel {
         return Binder(self.base, binding: { (label, text) in
             label.attributedText = text
         })
+    }
+}
+
+
+extension Reactive where Base: UIButton {
+    /// Reactive wrapper for `setTitle(_:for:)`
+    public func titleColor(for controlState: UIControl.State = []) -> Binder<UIColor?> {
+        Binder(self.base) { button, title in
+            button.setTitleColor(title, for: controlState)
+        }
     }
 }

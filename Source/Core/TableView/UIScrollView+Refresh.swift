@@ -45,7 +45,7 @@ public class CustomFooterRefreshView: MJRefreshAutoNormalFooter {
         stateLabel?.isHidden = true
         isRefreshingTitleHidden = true
         triggerAutomaticallyRefreshPercent = 0.1
-        setTitle(localized(name: "nomoreData"), for: .noMoreData)
+        setTitle(localized(name: "noMoreData"), for: .noMoreData)
         setTitle("", for: .idle)
         setTitle("", for: .pulling)
         setTitle("", for: .refreshing)
@@ -93,7 +93,9 @@ public class CustomFooterRefreshView: MJRefreshAutoNormalFooter {
             default:
                 break
             }
-            loadingView?.alpha = 0
+            if customLoadingView != nil {
+                loadingView?.alpha = 0
+            }
 
         }
     }
@@ -112,8 +114,11 @@ public class CustomHeaderRefreshView: MJRefreshNormalHeader {
         setTitle("", for: .pulling)
         setTitle("", for: .refreshing)
         setTitle("", for: .willRefresh)
-        arrowView?.alpha = 0
-        loadingView?.alpha = 0
+        if customLoadingView != nil {
+            arrowView?.alpha = 0
+            loadingView?.alpha = 0
+        }
+    
     }
     
     var customLoadingView: UIView? {
@@ -154,15 +159,21 @@ public class CustomHeaderRefreshView: MJRefreshNormalHeader {
             default:
                 break
             }
-            arrowView?.alpha = 0
-            loadingView?.alpha = 0
+            if customLoadingView != nil {
+                arrowView?.alpha = 0
+                loadingView?.alpha = 0
+            }
+          
         }
     }
     
     public override func scrollViewContentOffsetDidChange(_ change: [AnyHashable : Any]?) {
         super.scrollViewContentOffsetDidChange(change)
-        arrowView?.isHidden = true
-        loadingView?.alpha = 0
+        if customLoadingView != nil {
+            arrowView?.isHidden = true
+            loadingView?.alpha = 0
+        }
+       
     }
 }
 

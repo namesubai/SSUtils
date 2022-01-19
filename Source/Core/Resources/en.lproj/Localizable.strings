@@ -18,4 +18,4 @@
 "now" = "now";
 
 "network_error_common_msg" = "The Connection with the Server has failed. Please try again";
-"nomoreData" = "No more data";
+"noMoreData" = "no more data";

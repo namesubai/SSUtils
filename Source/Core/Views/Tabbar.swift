@@ -33,6 +33,7 @@ open class Tabbar: UITabBar {
     public override init(frame: CGRect) {
         super.init(frame: frame)
         layer.masksToBounds = true
+        addSubview(lineView)
     }
     
     open override func layoutSubviews() {

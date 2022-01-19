@@ -557,7 +557,7 @@ class ImageBrowseCell: UICollectionViewCell, UIScrollViewDelegate, EventTrigger 
 }
 
 
-open class ImageBrowseView: View, EventTrigger, UICollectionViewDelegate, UICollectionViewDataSource {
+open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICollectionViewDataSource {
    
 
     public enum Event {
@@ -659,6 +659,7 @@ open class ImageBrowseView: View, EventTrigger, UICollectionViewDelegate, UIColl
     @objc func tapAction() {
         if let trigger = self.triggerEvent {
             trigger(.close)
+            let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell
             
         }
     }
@@ -666,7 +667,7 @@ open class ImageBrowseView: View, EventTrigger, UICollectionViewDelegate, UIColl
   
     
     public func showAnimation() {
-        guard let imgeV = (collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as? ImageBrowseCell)?.imageV else { return }
+        let imgeV = (collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell).imageV
         if let orginalImageFrame = orginalImageFrame {
             imgeV.frame = orginalImageFrame
         }
@@ -703,8 +704,7 @@ open class ImageBrowseView: View, EventTrigger, UICollectionViewDelegate, UIColl
     }
     
     public func hideAnimation() {
-        guard let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as? ImageBrowseCell else { return }
-        
+        let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell
         let imgeV = cell.imageV
         if let orginalImageFrame = orginalImageFrame, let showBeightImageFrame = showBeightImageFrame,  let orginalCellFrame = orginalCellFrame {
           
@@ -728,16 +728,16 @@ open class ImageBrowseView: View, EventTrigger, UICollectionViewDelegate, UIColl
             }
         }
         bgMaskView.alpha = 0
-        
+
     }
     
     public func hideAnimationCompletion() {
-        guard let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as? ImageBrowseCell else { return }
+        let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell
         cell.imageV.layer.masksToBounds = false
     }
     
     public func startHideAniamtion() {
-        guard let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as? ImageBrowseCell else { return }
+        let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell
         cell.imageV.layer.masksToBounds = true
     }
     

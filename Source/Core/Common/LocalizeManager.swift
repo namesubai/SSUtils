@@ -14,11 +14,11 @@ public var currentLangType: LangType {
 }
 
 public var currentSystemLangType: LangType {
-    if var currentSystemLang = (UserDefaults.standard.object(forKey: "AppleLanguages") as? Array<String>)?.first, let type = LangType(rawValue: currentSystemLang.replacingOccurrences(of: "-", with: "_")) {
-        return type
-    } else {
+//    if var currentSystemLang = (UserDefaults.standard.object(forKey: "AppleLanguages") as? Array<String>)?.first, let type = LangType(rawValue: currentSystemLang.replacingOccurrences(of: "-", with: "_")) {
+//        return type
+//    } else {
         return .en
-    }
+//    }
 }
 
 public var currentLang: String {
@@ -45,11 +45,11 @@ public class LocalizeManager: NSObject {
         if let localLang = UserDefaults.standard.object(forKey: "ChoseLang") as? String, let type = LangType(rawValue: localLang) {
             self.currentLangType = type
         } else {
-            if let currentSystemLang = (UserDefaults.standard.object(forKey: "AppleLanguages") as? Array<String>)?.first, let type = LangType(rawValue: currentSystemLang.replacingOccurrences(of: "-", with: "_")) {
-                self.currentLangType = type
-            } else {
-                self.currentLangType = .en
-            }
+//            if let currentSystemLang = (UserDefaults.standard.object(forKey: "AppleLanguages") as? Array<String>)?.first, let type = LangType(rawValue: currentSystemLang.replacingOccurrences(of: "-", with: "_")) {
+//                self.currentLangType = type
+//            } else {
+//                self.currentLangType = .en
+//            }
             self.currentLangType = .en
         }
 //        self.currentLangType = .en

@@ -12,11 +12,10 @@ import RxCocoa
 
 
 public extension Reactive where Base: UITableView {
-    
     public var reloadData: ControlEvent<Void> {
-        let source = self.methodInvoked(#selector(Base.reloadData)).map { _ in }
-        return ControlEvent(events: source)
-    }
+    let source = self.methodInvoked(#selector(UIKit.UITableView.reloadData as ((UITableView) -> () -> Void))).mapToVoid()
+    return ControlEvent(events: source)
+  }
 }
 
 open class TableViewController: ViewController {
@@ -174,26 +173,19 @@ open class TableViewController: ViewController {
              guard let self = self else { return }
             self.tableView.showFooterRefresh(isShow: isShow, customLoadingView: self.footerCustomLoadingView)
          }).disposed(by: disposeBag)
-        tableView.rx.observe(CGSize.self, "contentSize").subscribe(onNext: { [weak self] _ in
+        
+        tableView.rx.reloadData.subscribe(onNext: { [weak self] _ in
             guard let self = self else { return }
             if self.tableView.numberOfSections > 0 {
                 self.tableView.hideNetworkErrorEmptyView()
             }
-        }).disposed(by: disposeBag)
-//        tableView.rx.reloadData.subscribe(onNext: { [weak self]  in
-//            guard let self = self else { return }
-//            if self.tableView.numberOfSections > 0 {
-//                self.tableView.hideNetworkErrorEmptyView()
-//            }
-//        }).disposed(by: disposeBag)
-//        tableView.rx.didEndDisplayingCell.subscribe(onNext: {
-//            [weak self]
-//            event in
-//            guard let self = self else { return }
-//            if self.tableView.numberOfSections > 0 {
-//                self.tableView.hideNetworkErrorEmptyView()
-//            }
-//        }).disposed(by: disposeBag)
+        }).disposed(by: rx.disposeBag)
+        self.tableView.rx.didEndDisplayingCell.subscribe(onNext: {
+            [weak self]
+            event in
+            guard let self = self else { return }
+            self.tableView.hideNetworkErrorEmptyView()
+        }).disposed(by: rx.disposeBag)
         
         viewModel.noData.observe(on: MainScheduler.instance).subscribe(onNext: {
             [weak self]

@@ -9,6 +9,8 @@ import UIKit
 
 open class MarginLabel: UILabel {
 
+    
+    
     open var space: UIEdgeInsets = .zero {
         didSet {
             space = UIEdgeInsets(top: space.top.rounded(), left: space.left.rounded(), bottom: space.bottom.rounded(), right: space.right.rounded())
