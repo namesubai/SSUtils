@@ -35,6 +35,7 @@ Pod::Spec.new do |s|
     ss.dependency "RxSwiftExt"
     ss.dependency "CryptoSwift"
     ss.framework  = "Foundation"
+
   end
   
 end

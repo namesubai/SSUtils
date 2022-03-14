@@ -12,7 +12,8 @@ import RxSwift
 open class CollectionViewCell: UICollectionViewCell {
     
     public var disposeBag = DisposeBag()
-    
+    open var isCellSelected: Bool = false
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         make()
@@ -32,5 +33,13 @@ open class CollectionViewCell: UICollectionViewCell {
     
     deinit {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
+    }
+}
+public extension Reactive where Base: CollectionViewCell {
+
+    var isCellSelected: Binder<Bool> {
+        return Binder(self.base) { view, attr in
+            view.isCellSelected = attr
+        }
     }
 }

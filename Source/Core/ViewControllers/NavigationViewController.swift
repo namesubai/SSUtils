@@ -9,6 +9,7 @@ import UIKit
 import RxSwift
 import RxCocoa
 
+private var isHideVisualEffectViewKey: Int8 = 0
 public extension UINavigationBar {
     func hideBottomHairline() {
         self.hairlineImageView?.isHidden = true
@@ -27,6 +28,16 @@ public extension UINavigationBar {
 
     }
     
+    public var isHideVisualEffectView: Bool {
+        set {
+            objc_setAssociatedObject(self, &isHideVisualEffectViewKey, newValue, .OBJC_ASSOCIATION_ASSIGN)
+        }
+        
+        get {
+            (objc_getAssociatedObject(self, &isHideVisualEffectViewKey) as? Bool) ?? false
+        }
+    }
+    
     func findBackGroudView(onView: UIView, name: String) -> UIView? {
         for view in onView.subviews {
             if  NSStringFromClass(view.classForCoder) == name {
@@ -42,11 +53,16 @@ public extension UINavigationBar {
         if let bgView = findBackGroudView(onView: self, name: "_UIBarBackground") {
             bgView.subviews.forEach { view in
                 view.isHidden = isHide
+                isHideVisualEffectView = isHide
                 if view.isKind(of: UIVisualEffectView.self) {
                     view.subviews.forEach { subView in
                         subView.isHidden = isHide
                     }
                 }
+//                UIView.animate(withDuration: UINavigationController.hideShowBarDuration) {
+//
+//                }
+                
             }
         }
 //        if let visualEffectView = findBackGroudView(onView: self, name: "UIVisualEffectView") {
@@ -152,9 +168,9 @@ open class NavigationViewController: UINavigationController{
                 let appearance = UINavigationBarAppearance()
                 appearance.configureWithTransparentBackground()
                 appearance.titleTextAttributes = self.navigationBar.titleTextAttributes ?? [NSAttributedString.Key : Any]()
-                appearance.backgroundColor = Colors.navBarBackgroud
-//                appearance.backgroundColor = Colors.navBarBackgroud.withAlphaComponent(0.9)
-//                appearance.backgroundEffect = UIBlurEffect(style: .light)
+//                appearance.backgroundColor = Colors.navBarBackgroud
+                appearance.backgroundEffect = UIBlurEffect(style: .light)
+                appearance.backgroundColor = Colors.navBarBackgroud.withAlphaComponent(0.8)
                 self.navigationBar.standardAppearance = appearance
                 self.navigationBar.scrollEdgeAppearance = appearance
             }).disposed(by: rx.disposeBag)
@@ -174,17 +190,44 @@ open class NavigationViewController: UINavigationController{
         if #available(iOS 15.0, *) {
             let appearance = UINavigationBarAppearance()
             appearance.configureWithTransparentBackground()
-            appearance.backgroundColor = Colors.navBarBackgroud
-
-//            appearance.backgroundColor = Colors.navBarBackgroud.withAlphaComponent(0.9)
-//            appearance.backgroundEffect = UIBlurEffect(style: .light)
+//            appearance.backgroundColor = Colors.navBarBackgroud
+            appearance.backgroundColor = Colors.navBarBackgroud.withAlphaComponent(0.8)
+            appearance.backgroundEffect = UIBlurEffect(style: .light)
             appearance.titleTextAttributes = navigationBar.titleTextAttributes ?? [NSAttributedString.Key : Any]()
             self.navigationBar.standardAppearance = appearance
             self.navigationBar.scrollEdgeAppearance = appearance
         }
-       
+        self.delegate = self
+//        var disposeBag = DisposeBag()
+//        self.navigationBar.rx.methodInvoked(#selector(UINavigationBar.layoutSubviews)).subscribe(onNext: {
+//            [weak self] _ in guard let self = self else { return }
+//            for subView in self.navigationBar.subviews {
+//                if NSStringFromClass(subView.classForCoder).contains("_UINavigationBarContentView") {
+//                    disposeBag = DisposeBag()
+//                    subView.rx.methodInvoked(#selector(UINavigationBar.layoutSubviews)).subscribe(onNext: {
+//                        [weak self] _ in guard let self = self else { return }
+//                        for subV in subView.subviews {
+//                            if NSStringFromClass(subV.classForCoder).contains("_UIButtonBarStackView") {
+//                                if subV.ss_x == 20 {
+//                                    subV.ss_x = 16
+//                                }
+//                                if subView.ss_w - subV.ss_maxX == 20 {
+//                                    subV.ss_x = subView.ss_w - 16 - subV.ss_w
+//                                }
+//                            }
+//                        }
+//                    }).disposed(by: disposeBag)
+//                    
+//                }
+//            }
+//        }).disposed(by: rx.disposeBag)
+        
+        
+        
         // Do any additional setup after loading the view.
     }
+    
+    
     
     open override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -195,6 +238,7 @@ open class NavigationViewController: UINavigationController{
         if viewControllers.count > 0 && viewController != viewControllers.first {
             viewController.hidesBottomBarWhenPushed = App.isHideTabBarWhenPush
         }
+        self.isPush = true
         super.pushViewController(viewController, animated: animated)
     }
     
@@ -202,12 +246,13 @@ open class NavigationViewController: UINavigationController{
         if viewControllers.count > 1 {
             viewControllers.last!.hidesBottomBarWhenPushed = App.isHideTabBarWhenPush
         }
+        self.isPush = true
         super.setViewControllers(viewControllers, animated: animated)
     }
     
     
     open override func popViewController(animated: Bool) -> UIViewController? {
-       
+        self.isPop = true
         self.view.endEditing(true)
         let vc = super.popViewController(animated: animated)
         return vc
@@ -228,7 +273,8 @@ open class NavigationViewController: UINavigationController{
     deinit {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
     }
-    
+ 
+   
     /*
     // MARK: - Navigation
 
@@ -238,6 +284,53 @@ open class NavigationViewController: UINavigationController{
         // Pass the selected object to the new view controller.
     }
     */
+
+}
+
+private var isPushKey: Int8 = 0
+private var isPopKey: Int8 = 0
+
+extension UINavigationController {
+    public var isPush: Bool {
+        set {
+            objc_setAssociatedObject(self, &isPushKey, newValue, .OBJC_ASSOCIATION_ASSIGN)
+        }
+        
+        get {
+            (objc_getAssociatedObject(self, &isPushKey) as? Bool) ?? false
+        }
+    }
+    
+    public var isPop: Bool {
+        set {
+            objc_setAssociatedObject(self, &isPopKey, newValue, .OBJC_ASSOCIATION_ASSIGN)
+        }
+        
+        get {
+            (objc_getAssociatedObject(self, &isPopKey) as? Bool) ?? false
+        }
+    }
+}
+
+extension NavigationViewController: UINavigationControllerDelegate, UINavigationBarDelegate {
+    
+   
+    
+    public func navigationBar(_ navigationBar: UINavigationBar, shouldPush item: UINavigationItem) -> Bool {
+        return true
+    }
+
+    public func navigationBar(_ navigationBar: UINavigationBar, didPush item: UINavigationItem) {
+        isPush = false
+    }
+
+    public func navigationBar(_ navigationBar: UINavigationBar, shouldPop item: UINavigationItem) -> Bool {
+        return true
+    }
+
+    public func navigationBar(_ navigationBar: UINavigationBar, didPop item: UINavigationItem) {
+        isPop = false
+    }
 
 }
 

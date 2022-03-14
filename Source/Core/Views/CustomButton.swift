@@ -52,14 +52,16 @@ open class CustomButton: Button {
     }
     
     
-    public var contentSize: CGSize = .zero
     public var customImageSize: CGSize = .zero
     public var maxWidth: CGFloat? = nil
     public var minHeight: CGFloat? = nil
+    public var isDefaultEnabledChang: Bool = true
 
     open override var isEnabled: Bool {
         didSet {
-            self.alpha = isEnabled ? 1 : 0.5
+            if isDefaultEnabledChang {
+                self.alpha = isEnabled ? 1 : 0.5
+            }
         }
     }
     
@@ -79,7 +81,6 @@ open class CustomButton: Button {
         }
     }
     
-    public var autoCornerRadious: Bool = false
     
     open override func layoutSubviews() {
         super.layoutSubviews()
@@ -389,10 +390,7 @@ open class CustomButton: Button {
             }
         }
         
-        if autoCornerRadious {
-            layer.cornerRadius = ss_h / 2
-            layer.masksToBounds = true
-        }
+      
         
         if let imageOrigin = imageOrigin , var imageV = imageView {
             imageV.ss_origin = CGPoint(x: imageOrigin.x + contentEdgeInsets.left, y: imageOrigin.y + contentEdgeInsets.top)
@@ -423,12 +421,7 @@ open class CustomButton: Button {
         setNeedsDisplay()
     }
     
-    open override var intrinsicContentSize: CGSize {
-        if self.contentSize != .zero {
-            return self.contentSize
-        }
-        return super.intrinsicContentSize
-    }
+   
     
     
     

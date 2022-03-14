@@ -7,6 +7,37 @@
 
 import UIKit
 
+public class DashPatternView: UIView {
+    public lazy var dashPatternLayer: CAShapeLayer = {
+        return self.layer as! CAShapeLayer
+    }()
+    
+    public override class var layerClass: AnyClass {
+        return CAShapeLayer.self
+    }
+    
+ 
+    public override init(frame: CGRect) {
+        super.init(frame: frame)
+        dashPatternLayer.fillColor = UIColor.clear.cgColor
+        dashPatternLayer.lineJoin = CAShapeLayerLineJoin.round
+        dashPatternLayer.lineDashPhase = 0
+    }
+    
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: 0, y: ss_h / 2))
+        path.addLine(to: CGPoint(x: ss_w, y: ss_h / 2))
+        dashPatternLayer.path = path.cgPath
+        dashPatternLayer.lineWidth = ss_h
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
 public extension UIView {
     enum Line {
         case top,left,bottom,right
@@ -53,12 +84,14 @@ public extension UIView {
     }
     
     func addCorner(size: CGSize = .zero, roundingCorners: UIRectCorner, cornerSize: CGSize) {
-        let path = UIBezierPath(roundedRect: size == .zero ? bounds : CGRect(x: 0, y: 0, width: size.width, height: size.height), byRoundingCorners: roundingCorners, cornerRadii: cornerSize)
+        let frame = size == .zero ? bounds : CGRect(x: 0, y: 0, width: size.width, height: size.height)
+        let path = UIBezierPath(roundedRect: frame, byRoundingCorners: roundingCorners, cornerRadii: cornerSize)
         let cornerLayer = CAShapeLayer()
-        cornerLayer.frame = bounds
+        cornerLayer.frame = frame
         cornerLayer.path = path.cgPath
         cornerLayer.shouldRasterize = true
         cornerLayer.rasterizationScale = UIScreen.main.scale
+        cornerLayer.masksToBounds = true
         layer.mask = cornerLayer
     }
 }
@@ -106,6 +139,69 @@ public extension UIView {
     }
 }
 
+
+public extension UIView {
+    enum ShakeDirection {
+        /// SwifterSwift: Shake left and right.
+        case horizontal
+
+        /// SwifterSwift: Shake up and down.
+        case vertical
+    }
+    
+    enum ShakeAnimationType {
+        /// SwifterSwift: linear animation.
+        case linear
+
+        /// SwifterSwift: easeIn animation.
+        case easeIn
+
+        /// SwifterSwift: easeOut animation.
+        case easeOut
+
+        /// SwifterSwift: easeInOut animation.
+        case easeInOut
+    }
+    
+    func startShake(direction: ShakeDirection = .horizontal, duration: TimeInterval = 1, animationType: ShakeAnimationType = .easeOut, isRepeat: Bool = false, completion:(() -> Void)? = nil) {
+        CATransaction.begin()
+        let animation: CAKeyframeAnimation
+        switch direction {
+        case .horizontal:
+            animation = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        case .vertical:
+            animation = CAKeyframeAnimation(keyPath: "transform.translation.y")
+        }
+        switch animationType {
+        case .linear:
+            animation.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.linear)
+        case .easeIn:
+            animation.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.easeIn)
+        case .easeOut:
+            animation.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.easeOut)
+        case .easeInOut:
+            animation.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.easeInEaseOut)
+        }
+        CATransaction.setCompletionBlock(completion)
+        animation.duration = duration
+        animation.values = [-20.0, 20.0, -20.0, 20.0, -10.0, 10.0, -5.0, 5.0, 0.0 ]
+        if isRepeat {
+            animation.repeatCount = MAXFLOAT
+        }
+        layer.add(animation, forKey: "shake")
+        CATransaction.commit()
+    }
+    
+    func leftRightShakeRotate(num: Double = 10, duration: TimeInterval = 1, isRepeat: Bool = true) {
+        let animation = CAKeyframeAnimation(keyPath: "transform.rotation")
+        animation.duration = duration
+        animation.values = [-num / 180 * Double.pi, num / 180 * Double.pi, -num / 180 * Double.pi, num / 180 * Double.pi, -num / 180 * Double.pi]
+        animation.fillMode = .forwards
+        animation.repeatCount = isRepeat ? MAXFLOAT : 1
+        animation.isRemovedOnCompletion = false
+        layer.add(animation, forKey: "shakeRotate")
+    }
+}
 
 public extension UIView {
     func removAllSubviews() {

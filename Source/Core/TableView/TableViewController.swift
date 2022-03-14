@@ -116,7 +116,7 @@ open class TableViewController: ViewController {
             self.view.endEditing(true)
         }).disposed(by: disposeBag)
         view.addSubview(tableView)
-
+        
     }
     
     open override func bind() {
@@ -138,7 +138,7 @@ open class TableViewController: ViewController {
                             self.notNetworkRetryTrigger.onNext(())
                         }
                         if self.tableView.tableHeaderView != nil {
-                            self.tableView.notNetworkEmptyView?.centerOffset = CGPoint(x: 0, y: -App.navAndStatusBarHeight + (self.tableView.tableHeaderView?.ss_h ?? 0))
+                            self.tableView.notNetworkEmptyView?.centerOffset = CGPoint(x: 0, y: -App.navAndStatusBarHeight + App.emptyCenterOffset.y + (self.tableView.tableHeaderView?.ss_h ?? 0))
 
                         }
                     } else {
@@ -151,7 +151,7 @@ open class TableViewController: ViewController {
                                 self.notNetworkRetryTrigger.onNext(())
                             }
                             if self.tableView.tableHeaderView != nil {
-                                self.tableView.notNetworkEmptyView?.centerOffset = CGPoint(x: 0, y: -App.navAndStatusBarHeight - (self.tableView.tableHeaderView?.ss_h ?? 0))
+                                self.tableView.notNetworkEmptyView?.centerOffset = CGPoint(x: 0, y: -App.navAndStatusBarHeight + App.emptyCenterOffset.y - (self.tableView.tableHeaderView?.ss_h ?? 0))
 
                             }
                         }
@@ -179,13 +179,13 @@ open class TableViewController: ViewController {
             if self.tableView.numberOfSections > 0 {
                 self.tableView.hideNetworkErrorEmptyView()
             }
-        }).disposed(by: rx.disposeBag)
+        }).disposed(by: disposeBag)
         self.tableView.rx.didEndDisplayingCell.subscribe(onNext: {
             [weak self]
             event in
             guard let self = self else { return }
             self.tableView.hideNetworkErrorEmptyView()
-        }).disposed(by: rx.disposeBag)
+        }).disposed(by: disposeBag)
         
         viewModel.noData.observe(on: MainScheduler.instance).subscribe(onNext: {
             [weak self]
@@ -199,12 +199,14 @@ open class TableViewController: ViewController {
                                                               title: noData.title,
                                                               titleFont: noData.titleFont,
                                                               titleColor: noData.titleColor,
-                                                              buttonTitle:
-                                                                noData.buttonTitle,
+                                                              buttonTitle: noData.buttonTitle,
                                                               buttonTitleFont: noData.buttonTitleFont,
-                                                              buttonTitleColor: noData.buttonTitleColor, buttonCustomView: noData.customButtonView) {
+                                                              buttonTitleColor: noData.buttonTitleColor,
+                                                              buttonCustomView: noData.customButtonView) {
+                    [weak self] in guard let self = self else {return}
                     self.emptyTrigger.onNext(())
                 }
+                emptyView?.centerOffset = App.emptyCenterOffset
                 self.tableView.customFooterView?.isHidden = true
                 self.tableView.footerEndRefresh()
             }else {
@@ -251,7 +253,10 @@ open class TableViewController: ViewController {
     public func beginHeaderRefresh() {
         self.navigationController?.view.setNeedsDisplay()
         self.navigationController?.view.layoutIfNeeded()
-        tableView.headerBeginRefresh()
+        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.3) {
+            [weak self] in guard let self = self else { return }
+            self.tableView.headerBeginRefresh()
+        }
     }
     
 }

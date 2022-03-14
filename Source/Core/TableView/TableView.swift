@@ -58,6 +58,7 @@ open class TableView: UITableView {
     open override func layoutSubviews() {
         super.layoutSubviews()
         if isInsetGroupedAble {
+            
             let sections = numberOfSections
             for section in 0..<sections {
                 let rows = numberOfRows(inSection: section)
@@ -79,9 +80,13 @@ open class TableView: UITableView {
                                 
                                 cell.addCorner(roundingCorners: [.topLeft, .topRight], cornerSize: CGSize(width: insetGroupedCornerRadius, height: insetGroupedCornerRadius))
                                 
-                            }
-                            if row == rows - 1 {
+                            } else if row == rows - 1 {
                                 cell.addCorner(roundingCorners: [.bottomLeft, .bottomRight], cornerSize: CGSize(width: insetGroupedCornerRadius, height: insetGroupedCornerRadius))
+                                if let defaultCell = cell as? TableViewCell {
+                                    defaultCell.isHideLineView = true
+                                }
+                            } else {
+                                cell.addCorner(roundingCorners: [], cornerSize: CGSize(width: insetGroupedCornerRadius, height: insetGroupedCornerRadius))
                                 if let defaultCell = cell as? TableViewCell {
                                     defaultCell.isHideLineView = true
                                 }

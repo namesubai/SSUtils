@@ -13,13 +13,17 @@ public var currentLangType: LangType {
     LocalizeManager.shared.currentLangType
 }
 
-public var currentSystemLangType: LangType {
-//    if var currentSystemLang = (UserDefaults.standard.object(forKey: "AppleLanguages") as? Array<String>)?.first, let type = LangType(rawValue: currentSystemLang.replacingOccurrences(of: "-", with: "_")) {
-//        return type
-//    } else {
-        return .en
-//    }
-}
+//public var currentSystemLangType: LangType {
+////    if var currentSystemLang = (UserDefaults.standard.object(forKey: "AppleLanguages") as? Array<String>)?.first, let type = LangType(rawValue: currentSystemLang.replacingOccurrences(of: "-", with: "_")) {
+////        return type
+////    } else {
+//        return .en
+////    }
+//
+////    if let lang = LocalizeManager.shared.defaulLangType {
+////        return lang
+////    }
+//}
 
 public var currentLang: String {
     LocalizeManager.shared.currentLangType.rawValue
@@ -34,25 +38,36 @@ fileprivate let applicationLocale = hostingBundle.preferredLocalizations.first.f
 public enum LangType: String {
     case en = "en"
     case ptBR = "pt_BR"
+    case id = "id"
+    case ru = "ru"
 }
+
+public struct LocalizeConfig {
+    public static var defaulLangType: LangType?
+}
+
 
 public class LocalizeManager: NSObject {
     public static let shared = LocalizeManager()
-    public var currentLangType: LangType!
+    public private(set) var currentLangType: LangType!
     public var langDisChange: BehaviorRelay<LangType>!
     public override init() {
         super.init()
         if let localLang = UserDefaults.standard.object(forKey: "ChoseLang") as? String, let type = LangType(rawValue: localLang) {
             self.currentLangType = type
         } else {
-//            if let currentSystemLang = (UserDefaults.standard.object(forKey: "AppleLanguages") as? Array<String>)?.first, let type = LangType(rawValue: currentSystemLang.replacingOccurrences(of: "-", with: "_")) {
-//                self.currentLangType = type
-//            } else {
-//                self.currentLangType = .en
-//            }
-            self.currentLangType = .en
+            if let defaulLangType = LocalizeConfig.defaulLangType {
+                self.currentLangType = defaulLangType
+            } else {
+//                if let currentSystemLang = (UserDefaults.standard.object(forKey: "AppleLanguages") as? Array<String>)?.first, let type = LangType(rawValue: currentSystemLang.replacingOccurrences(of: "-", with: "_")) {
+//                    self.currentLangType = type
+//                } else {
+//                    self.currentLangType = .en
+//                }
+                self.currentLangType = .en
+            }
+            
         }
-//        self.currentLangType = .en
         langDisChange = BehaviorRelay(value: self.currentLangType)
     }
     

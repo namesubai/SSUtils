@@ -7,7 +7,7 @@
 
 import Foundation
 //import StoreKit
-private let defaulAppStoreID = 1559345315
+private let defaulAppStoreID = App.defaulAppStoreID
 public extension NSObject {
     static var className: String {
         return NSStringFromClass(self)
@@ -57,5 +57,37 @@ public extension NSObject {
 //           }
 //           present(storeProductVC, animated: true, completion: nil)
 //    }
+    
+    func generateQRCode(string: String, size: CGFloat = 200) -> UIImage? {
+        let filter = CIFilter(name: "CIQRCodeGenerator")
+        filter?.setDefaults()
+        let data = string.data(using: .utf8)
+        filter?.setValue(data, forKey: "inputMessage")
+        if let outputImage = filter?.outputImage {
+            return createUIImageFromCIImage(image: outputImage, size: size)
+        }
+        return nil
+    }
+    
+    func createUIImageFromCIImage(image: CIImage, size: CGFloat) -> UIImage {
+            let extent = image.extent.integral
+            let scale = min(size / extent.width, size / extent.height)
+                
+            /// Create bitmap
+            let width: size_t = size_t(extent.width * scale)
+            let height: size_t = size_t(extent.height * scale)
+            let cs: CGColorSpace = CGColorSpaceCreateDeviceGray()
+            let bitmap: CGContext = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: 1)!
+           
+            ///
+            let context = CIContext.init()
+            let bitmapImage = context.createCGImage(image, from: extent)
+            bitmap.interpolationQuality = .none
+            bitmap.scaleBy(x: scale, y: scale)
+            bitmap.draw(bitmapImage!, in: extent)
+                
+            let scaledImage = bitmap.makeImage()
+            return UIImage.init(cgImage: scaledImage!)
+        }
 }
 

@@ -10,6 +10,8 @@ import Moya
 import RxSwift
 import RxCocoa
 
+
+
 open class ViewController: UIViewController,Navigatale {
     open var disposeBag = DisposeBag()
     open var viewModel: ViewModel?
@@ -34,6 +36,8 @@ open class ViewController: UIViewController,Navigatale {
     public var isAutoShowAndHideNavBackButton = true
     public var isDimiss = false
 
+    public var isTranslucent = App.navIsTranslucent
+    
     open var bottomToolView: UIView? = nil {
         didSet {
             if let view = oldValue {
@@ -62,7 +66,7 @@ open class ViewController: UIViewController,Navigatale {
     }
     
     public var backButon: UIButton? {
-        self.navigationItem.leftBarButtonItem?.customView as? UIButton
+        self.backButton
     }
 
     public init(viewModel: ViewModel? = nil, navigator: Navigator? = nil) {
@@ -70,6 +74,11 @@ open class ViewController: UIViewController,Navigatale {
         self.navigator = navigator
         super.init(nibName: nil, bundle: nil)
     }
+    
+    private var backButton: Button = {
+        let backButton = Button(type: .system)
+        return backButton
+    }()
     
     required public init?(coder: NSCoder) {
         super.init(nibName: nil, bundle: nil)
@@ -80,21 +89,25 @@ open class ViewController: UIViewController,Navigatale {
         if #available(iOS 11.0, *) {
             navigationController?.navigationBar.prefersLargeTitles = false
         }
-
         view.backgroundColor = Colors.backgroud
         
         let backImage: UIImage? =  App.navBackImage ?? image("back")
         
         if (!isNavigationRootViewController && backImage != nil && isAutoShowAndHideNavBackButton) || !isAutoShowAndHideNavBackButton {
-            let backButton = UIButton(type: .system)
             let image = backImage?.withRenderingMode(.alwaysOriginal)
             backButton.setImage(image, for: .normal)
-            backButton.ss_size = CGSize(width: 40, height: self.navigationBarHeight)
-            backButton.contentEdgeInsets = .zero
+            backButton.contentSize = CGSize(width: 40, height: self.navigationBarHeight)
+            backButton.translatesAutoresizingMaskIntoConstraints = false
+            let leftMargin = (40 - image!.size.width) / 2
+            backButton.overrideAlignmentRectInsets = UIEdgeInsets(top: 0, left: leftMargin + 4, bottom: 0, right: 0)
+
             if image != nil {
-                backButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -backButton.ss_size.width/2 - image!.size.width/2, bottom: 0, right: 0)
+                backButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -leftMargin, bottom: 0, right: 0)
             }
-            self.navigationItem.leftBarButtonItem = UIBarButtonItem(customView: backButton)
+            let negativeSeperator = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+            negativeSeperator.width = 8
+            let backButtonItem = UIBarButtonItem(customView: backButton)
+            self.navigationItem.leftBarButtonItems = [negativeSeperator, backButtonItem]
             backButton.rx.tap.asDriver().drive(onNext:{[weak self]() in
                 self?.backAction()
             }).disposed(by: disposeBag)
@@ -106,7 +119,29 @@ open class ViewController: UIViewController,Navigatale {
     
     open override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        navigationController?.navigationBar.barTintColor = navigationBarColor
+        
+        if !isHideNavVisualEffectView && !isHideNavigationBar {
+            if #available(iOS 15.0, *) {
+
+                if var appearance = navigationController?.navigationBar.standardAppearance {
+                    if isTranslucent == true {
+                        appearance.backgroundEffect = UIBlurEffect(style: .light)
+                        appearance.backgroundColor = navigationBarColor?.withAlphaComponent(0.8)
+                        
+                    } else {
+                        appearance.configureWithTransparentBackground()
+                        appearance.backgroundColor = navigationBarColor
+                    }
+                    navigationController?.navigationBar.standardAppearance = appearance
+                    navigationController?.navigationBar.scrollEdgeAppearance = appearance
+                }
+               
+            } else {
+                navigationController?.navigationBar.barTintColor = navigationBarColor
+            }
+        }
+       
+        
         if isHideNavVisualEffectView {
             self.navigationController?.navigationBar.hideVisualEffectView(isHide: true, navBarColor: navigationBarColor)
         }
@@ -115,6 +150,7 @@ open class ViewController: UIViewController,Navigatale {
         if isHideNavigationBar  {
             navigationController?.setNavigationBarHidden(true, animated: animated)
         }
+      
         if #available(iOS 11.0, *) {
 //            navigationItem.largeTitleDisplayMode = .never
         }
@@ -123,6 +159,19 @@ open class ViewController: UIViewController,Navigatale {
     
     open override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        if self.navigationController?.navigationBar.isHideVisualEffectView == true {
+            self.navigationController?.navigationBar.hideVisualEffectView(isHide: false, navBarColor: navigationBarColor)
+            
+            if isHideNavVisualEffectView {
+                self.navigationController?.navigationBar.hideVisualEffectView(isHide: true, navBarColor: navigationBarColor)
+            }
+           
+
+            if isHideNavigationBar  {
+                navigationController?.setNavigationBarHidden(true, animated: animated)
+            }
+        }
+        
     }
     
     open override func viewWillDisappear(_ animated: Bool) {
@@ -131,11 +180,13 @@ open class ViewController: UIViewController,Navigatale {
         if isHideNavigationBar && self.presentedViewController == nil && previousVC?.isHideNavigationBar != true {
             navigationController?.setNavigationBarHidden(false, animated: animated)
         }
+        self.navigationController?.navigationBar
+        if isHideNavVisualEffectView && self.presentedViewController == nil && previousVC?.isHideNavigationBar != true  && self.navigationController?.isPush == true {
+            self.navigationController?.navigationBar.hideVisualEffectView(isHide: false, navBarColor: navigationBarColor)
+        }
     }
     
-    open override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-    }
+
     
     open override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
@@ -203,10 +254,10 @@ open class ViewController: UIViewController,Navigatale {
                     self.tableView() == nil &&
                     self.isAutoShowNoNetWrokEmptyView  {
                     self.toastOnView?.hideEmptyView()
-                    self.toastOnView?.showNetworkErrorEmptyView(){
+                    let emptyView = self.toastOnView?.showNetworkErrorEmptyView(){
                         self.notNetworkRetryTrigger.onNext(())
                     }
-
+                    emptyView?.centerOffset = App.emptyCenterOffset
                 }
                 
                 if error.errorCode == 6 {
@@ -231,11 +282,19 @@ open class ViewController: UIViewController,Navigatale {
             if self.tableView() == nil && self.defaultFirstTableView == nil {
                 self.toastOnView?.hideNetworkErrorEmptyView()
                 if let noData = noData  {
-                    self.toastOnView?.showEmptyView(image: noData.image,
+                    let emptyView = self.toastOnView?.showEmptyView(image: noData.image,
                                                     title: noData.title,
-                                                    buttonTitle: noData.buttonTitle) {
+                                                    titleFont: noData.titleFont,
+                                                    titleColor: noData.titleColor,
+                                                    buttonTitle: noData.buttonTitle,
+                                                    buttonTitleFont: noData.buttonTitleFont,
+                                                    buttonTitleColor: noData.buttonTitleColor,
+                                                    buttonCustomView: noData.customButtonView) {
+                        [weak self] in
+                        guard let self = self else {return}
                         self.emptyTrigger.onNext(())
                     }
+                    emptyView?.centerOffset = App.emptyCenterOffset
                 }else {
                     self.toastOnView?.hideEmptyView()
                 }
@@ -248,7 +307,7 @@ open class ViewController: UIViewController,Navigatale {
     }
     
     
-    func tableView() -> UITableView? {
+    func tableView() -> UIScrollView? {
         return self.view.subviews.first(where: {$0 is UITableView}) as? UITableView
     }
     

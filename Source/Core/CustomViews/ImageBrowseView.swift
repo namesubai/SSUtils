@@ -265,7 +265,6 @@ class ImageBrowseLayout: UICollectionViewFlowLayout, UIGestureRecognizerDelegate
                 
                 if let image = image {
                     activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
-                    activityVC?.popoverPresentationController
                     UIViewController.getCurrentViewController()?.present(activityVC!, animated: true, completion: nil)
                     activityVC!.completionWithItemsHandler = {
                         type, completed, _, error in

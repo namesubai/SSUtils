@@ -81,6 +81,7 @@ open class ViewModel: NSObject {
     public var noMore = BehaviorRelay<Bool>(value: false)
     public var showFooterRefresh = BehaviorRelay<Bool>(value: false)
     public var error = ErrorTracker()
+    public var emptyError = ErrorTracker()
 
     public var noData = PublishRelay<NoData?>()
     public var noNetwork = PublishRelay<Bool>()

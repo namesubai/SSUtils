@@ -106,10 +106,13 @@ public struct App {
 
     public static var navBackImage: UIImage? = nil
     public static var isHideTabBarWhenPush: Bool = true
+    public static var navIsTranslucent: Bool = true
+    public static var tabIsTranslucent: Bool = true
     public static var navBarTitleFont: UIFont = Fonts.semiBold(18)
     public static var headerCustomLodingView: (() -> UIView?)? = nil
     public static var footerCustomLodingView: (() -> UIView?)? = nil
     public static var emptyNotNetworkImage: UIImage? = nil
+    public static var emptyErrorImage: UIImage? = nil
     public static var emptyNotNetworkText: String? = nil
     public static var emptyNotNetworkTextFont: UIFont? = nil
     public static var emptyNotNetworkTextColor: UIColor? = nil
@@ -117,6 +120,9 @@ public struct App {
     public static var emptyTitleColor: UIColor? = nil
     public static var emptyButtonTitleFont: UIFont? = nil
     public static var emptyButtonTitleColor: UIColor? = nil
+    public static var defaulAppStoreID: String = "1606154284"
+    public static var emptyNotNetworkButtonCustomView: UIView? = nil
+    public static var emptyCenterOffset: CGPoint = .zero
 
     var serviceErrorHandle:(() -> Void)?
     public mutating func serviceErrorHandle(block:@escaping () -> Void) {

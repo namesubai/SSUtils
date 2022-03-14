@@ -312,8 +312,8 @@ class ProgressCustomLoadTextView: UIView & SSProgressCustom {
                 loadingView.frame = CGRect(x: (self.frame.size.width - kActivityIndicatorViewSize.width) / 2, y: 0, width: kActivityIndicatorViewSize.width, height: kActivityIndicatorViewSize.height)
             }
             
-            selfHeight = kActivityIndicatorViewSize.height
-            selfWidth = kActivityIndicatorViewSize.width
+            selfHeight = loadingView.ss_h
+            selfWidth = loadingView.ss_w
             activityIndicatorViewY += kActivityIndicatorViewAndTextSpace + selfHeight
         }
         

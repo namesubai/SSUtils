@@ -16,8 +16,24 @@ public extension UINavigationController {
     func popViewController(animated: Bool = true, _ completion: (() -> Void)? = nil) {
         // https://github.com/cotkjaer/UserInterface/blob/master/UserInterface/UIViewController.swift
         CATransaction.begin()
-        CATransaction.setCompletionBlock(completion)
+        CATransaction.setCompletionBlock{
+            DispatchQueue.main.async {
+                completion?()
+            }
+        }
         popViewController(animated: animated)
+        CATransaction.commit()
+    }
+    
+    func popRootViewController(animated: Bool = true, _ completion: (() -> Void)? = nil) {
+        // https://github.com/cotkjaer/UserInterface/blob/master/UserInterface/UIViewController.swift
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            DispatchQueue.main.async {
+                completion?()
+            }
+        }
+        popToRootViewController(animated: animated)
         CATransaction.commit()
     }
 

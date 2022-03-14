@@ -56,7 +56,7 @@ public class Navigator: NSObject {
     
     public func pop(sender: UIViewController?, toRoot: Bool = false, animated: Bool = true, completion: (() -> Void)? = nil)  {
         if toRoot {
-            sender?.navigationController?.popToRootViewController(animated: animated)
+            sender?.navigationController?.popRootViewController(animated: animated, completion)
         }else {
             sender?.navigationController?.popViewController(animated: animated, completion)
         }

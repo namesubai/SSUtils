@@ -8,6 +8,7 @@
 import UIKit
 import RxSwift
 import RxCocoa
+import Moya
 
 
 public struct TabBarItem {
@@ -33,9 +34,26 @@ public struct TabBarItem {
 }
 
 open class TabBarViewController: UITabBarController,Navigatale {
-
+    open var disposeBag = DisposeBag()
     public private(set) var viewModel: ViewModel?
     public var navigator: Navigator?
+    open var error = PublishSubject<Error>()
+    public let loading = PublishSubject<Bool>()
+    public let interactionDisableLoading = PublishSubject<Bool>()
+    public let customLoading = PublishSubject<Bool>()
+    public let messageToast = PublishSubject<String?>()
+    public let emptyTrigger = PublishSubject<Void>()
+    public let notNetworkRetryTrigger = PublishSubject<Void>()
+
+    open var navigationBarColor: UIColor? = Colors.navBarBackgroud
+    public let goBackCompletion = PublishSubject<Void>()
+    open var isHideNavigationBar = false
+    open var isHideNavVisualEffectView = false
+    open var isToastOnWidow: Bool = false
+    open var customToastOnView: UIView? = nil
+    public var isAutoShowNoNetWrokEmptyView = false
+    public var defaultFirstTableView: UITableView?
+    
     public init(viewModel: ViewModel? = nil, navigator: Navigator? = nil) {
         self.viewModel = viewModel
         self.navigator = navigator
@@ -44,6 +62,16 @@ open class TabBarViewController: UITabBarController,Navigatale {
     
     public var customTabBar: Tabbar {
         return self.tabBar as! Tabbar
+    }
+    
+    open var toastOnView: UIView? {
+        if customToastOnView != nil {
+            return customToastOnView!
+        }
+        if isToastOnWidow {
+            return self.view.window
+        }
+        return self.view
     }
     
     required public init?(coder: NSCoder) {
@@ -62,8 +90,10 @@ open class TabBarViewController: UITabBarController,Navigatale {
             let appearance = UITabBarAppearance()
             appearance.configureWithTransparentBackground()
             appearance.backgroundColor = Colors.tabBarBackgroud
-//            appearance.backgroundEffect = UIBlurEffect(style: .light)
-//            appearance.backgroundColor = Colors.tabBarBackgroud.withAlphaComponent(0.9)
+            if App.tabIsTranslucent {
+                appearance.backgroundEffect = UIBlurEffect(style: .light)
+                appearance.backgroundColor = Colors.tabBarBackgroud.withAlphaComponent(0.9)
+            }
             self.tabBar.standardAppearance = appearance
             self.tabBar.scrollEdgeAppearance = appearance
         }
@@ -77,9 +107,103 @@ open class TabBarViewController: UITabBarController,Navigatale {
     }
     
     open func bind() {
+        guard let viewModel = self.viewModel else { return }
+        viewModel.loading.asObservable().subscribe(on: MainScheduler.instance).bind(to:loading).disposed(by: disposeBag)
+        viewModel.loading.asObservable().subscribe(on: MainScheduler.instance).bind(to: rx.loading).disposed(by: disposeBag)
+        loading.subscribe(onNext: { isLoading in
+            UIApplication.shared.isNetworkActivityIndicatorVisible = isLoading
+        }).disposed(by: disposeBag)
+        viewModel.clearLoading.asObservable().observe(on: MainScheduler.instance).bind(to: interactionDisableLoading).disposed(by: disposeBag)
+        viewModel.clearLoading.asObservable().observe(on: MainScheduler.instance).bind(to: rx.cannotClickLoading).disposed(by: disposeBag)
+        interactionDisableLoading.observe(on: MainScheduler.instance).subscribe(onNext: { isLoading in
+            UIApplication.shared.isNetworkActivityIndicatorVisible = isLoading
+        }).disposed(by: disposeBag)
+        
+        viewModel.customLoading.asObservable().observe(on: MainScheduler.instance).bind(to: rx.customLoading).disposed(by: disposeBag)
+        
+        viewModel.msgToast.asObservable().observe(on: MainScheduler.instance).bind(to: messageToast).disposed(by: disposeBag)
+        viewModel.msgToast.asObservable().observe(on: MainScheduler.instance).subscribe(onNext: {
+            [weak self] (msg) in
+             guard let self = self else {return}
+            self.toastOnView?.showTextHUD(msg)
+             
+         }).disposed(by: disposeBag)
+        
+        viewModel.showHud.observe(on: MainScheduler.instance).asObservable().subscribe(onNext: {
+            [weak self] (msg) in
+             guard let self = self else {return}
+            self.toastOnView?.showTextHUD(msg)
+
+         }).disposed(by: disposeBag)
+
+        viewModel.error.asObservable().observe(on: MainScheduler.instance).bind(to: error).disposed(by: disposeBag)
+        viewModel.error.asObservable().observe(on: MainScheduler.instance).subscribe(onNext: {
+           [weak self] (error) in
+            guard let self = self else {return}
+            if let error = error as? ServiceError {
+                self.toastOnView?.showTextHUD(error.errorMsg)
+//                if error.code == .tokenInvalid || error.code == .loginExpired || error.code == .needLogin  {
+////                    self.navigator?.show(interface: .login(viewModel: HKLoginInVM(provider: viewModel.provider)), sender: self)
+//                }
+            } else if let error = error as? Moya.MoyaError {
+//                self.toastOnView?.showTextHUD(error.errorDescription)
+               
+                if error.errorCode == 6 &&
+                    self.defaultFirstTableView == nil &&
+                    self.tableView() == nil &&
+                    self.isAutoShowNoNetWrokEmptyView  {
+                    self.toastOnView?.hideEmptyView()
+                    let emptyView = self.toastOnView?.showNetworkErrorEmptyView(){
+                        self.notNetworkRetryTrigger.onNext(())
+                    }
+                    emptyView?.centerOffset = App.emptyCenterOffset
+                }
+                
+                if error.errorCode == 6 {
+                    self.toastOnView?.showTextHUD(localized(name: "noInternetAccess"))
+                } else {
+                    self.toastOnView?.showTextHUD(localized(name: "network_error_common_msg"))
+                }
+            }
+            else {
+                let error = error as NSError
+                let message = error.userInfo[NSLocalizedDescriptionKey] as? String
+                self.toastOnView?.showTextHUD(message)
+            }
+           
+        }).disposed(by: disposeBag)
+        
+        viewModel.noData.observe(on: MainScheduler.instance).subscribe(onNext: {
+            [weak self]
+            noData
+            in
+            guard let self = self else {return}
+            if self.tableView() == nil && self.defaultFirstTableView == nil {
+                self.toastOnView?.hideNetworkErrorEmptyView()
+                if let noData = noData  {
+                    self.toastOnView?.showEmptyView(image: noData.image,
+                                                    title: noData.title,
+                                                    titleFont: noData.titleFont,
+                                                    titleColor: noData.titleColor,
+                                                    buttonTitle: noData.buttonTitle,
+                                                    buttonTitleFont: noData.buttonTitleFont,
+                                                    buttonTitleColor: noData.buttonTitleColor,
+                                                    buttonCustomView: noData.customButtonView) {
+                        self.emptyTrigger.onNext(())
+                    }
+                }else {
+                    self.toastOnView?.hideEmptyView()
+                }
+            }
+            
+        }).disposed(by: disposeBag)
+        
         
     }
     
+    func tableView() -> UITableView? {
+        return self.view.subviews.first(where: {$0 is UITableView}) as? UITableView
+    }
 
     open override var childForStatusBarHidden: UIViewController? {
         return self.selectedViewController
@@ -135,4 +259,35 @@ public extension Reactive where Base: UITabBarController {
         }
     }
     
+}
+public extension Reactive where Base: TabBarViewController {
+
+    var cannotClickLoading: Binder<Bool> {
+        return Binder(self.base) { viewController, attr in
+            if attr {
+                UIApplication.shared.keyWindow?.showLoadingTextHUD(maskType: .clear)
+            }else{
+                UIApplication.shared.keyWindow?.hideHUD()
+            }
+        }
+    }
+    
+    var loading: Binder<Bool> {
+        return Binder(self.base) { viewController, attr in
+            if attr {
+                viewController.toastOnView?.showLoadingTextHUD()
+            }else{
+                viewController.toastOnView?.hideHUD()
+            }
+        }
+    }
+    var customLoading: Binder<Bool> {
+        return Binder(self.base) { viewController, attr in
+            if attr {
+//                viewController.toastOnView?.showCustomLoadingView()
+            }else{
+//                viewController.toastOnView?.hideCustomLoadingView()
+            }
+        }
+    }
 }

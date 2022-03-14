@@ -15,8 +15,11 @@ open class Button: UIButton {
     public var isAutoSetSelectedHightLight = false
     /// 是否自动设置normal的时候高亮，避免当按钮是selected状态，长按回是nomarl的情况
     public var isAutoSetNormalHightLight = false
-    
+    public var autoCornerRadious: Bool = false
+    public var overrideAlignmentRectInsets: UIEdgeInsets?
     private var isShowingRedCacheKey: String?
+    public var contentSize: CGSize = .zero
+
     open override var isSelected: Bool {
         didSet{
             if isSelected {
@@ -31,6 +34,13 @@ open class Button: UIButton {
             }
             
         }
+    }
+    
+    open override var alignmentRectInsets: UIEdgeInsets {
+        if let overrideAlignmentRectInsets = overrideAlignmentRectInsets {
+            return overrideAlignmentRectInsets
+        }
+        return super.alignmentRectInsets
     }
     
     open var selectedBorderColor: UIColor? {
@@ -63,6 +73,34 @@ open class Button: UIButton {
         }
     }
     
+    open var titleLabelGradientColors: [CGColor] = [] {
+        didSet {
+            if titleLabelGradientColors.count > 0 {
+                setNeedsDisplay()
+                layoutIfNeeded()
+            }
+
+        }
+    }
+    open var titleLabelGradientStartPoint: CGPoint = .zero
+    
+    open var titleLabelGradientEndPoint: CGPoint = CGPoint(x: 1, y: 1)
+    
+    
+    open override func layoutSubviews() {
+        super.layoutSubviews()
+        if autoCornerRadious {
+            layer.cornerRadius = ss_h / 2
+            layer.masksToBounds = true
+        }
+    }
+    
+    open override var intrinsicContentSize: CGSize {
+        if self.contentSize != .zero {
+            return self.contentSize
+        }
+        return super.intrinsicContentSize
+    }
     
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -141,6 +179,28 @@ open class Button: UIButton {
             showRedPointView(point: point, size: size)
         }
     }
+    
+    open override func draw(_ rect: CGRect) {
+        super.draw(rect)
+        if let titleLabel = titleLabel, titleLabelGradientColors.count > 0 {
+            UIGraphicsBeginImageContextWithOptions(titleLabel.bounds.size, false, UIScreen.main.scale)
+            let context = UIGraphicsGetCurrentContext()
+            let colorSpaceRef = CGColorSpaceCreateDeviceRGB()
+            let gradientRef = CGGradient.init(colorsSpace: colorSpaceRef, colors: titleLabelGradientColors as CFArray, locations: nil)
+            let startPoint = CGPoint(x: titleLabel.bounds.width  * titleLabelGradientStartPoint.x, y: titleLabel.bounds.height * titleLabelGradientStartPoint.y)
+            let endPoint = CGPoint(x: titleLabel.bounds.width  * titleLabelGradientEndPoint.x, y: titleLabel.bounds.height * titleLabelGradientEndPoint.y)
+            context?.drawLinearGradient(gradientRef!, start: startPoint, end: endPoint, options: [.drawsAfterEndLocation, .drawsBeforeStartLocation])
+            let graientImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+            if graientImage != nil {
+                let color = UIColor(patternImage: graientImage!)
+                setTitleColor(color, for: .normal)
+            }
+            
+        }
+        
+    }
+    
     
     required public init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")

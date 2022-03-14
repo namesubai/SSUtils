@@ -108,13 +108,38 @@ open class EmptyView: UIView {
         
         if let buttonCustomView = buttonCustomView {
             contenView?.addSubview(buttonCustomView)
-            buttonCustomView.snp.remakeConstraints { (make) in
-                make.top.equalTo(topMargin)
-                make.centerX.equalToSuperview()
+            if buttonCustomView.ss_size != .zero {
+                buttonCustomView.snp.remakeConstraints { (make) in
+                    make.top.equalTo(topMargin)
+                    make.centerX.equalToSuperview()
+                    make.size.equalTo(buttonCustomView.ss_size)
+                }
+            } else {
+                buttonCustomView.snp.makeConstraints { (make) in
+                    make.top.equalTo(topMargin)
+                    make.centerX.equalToSuperview()
+                }
             }
+            
             let size = buttonCustomView.systemLayoutSizeFitting(UIView.layoutFittingExpandedSize)
             topMargin += size.height
             totalHeight += size.height + 15.wScale
+            
+            if let button = buttonCustomView as? UIButton {
+                button.rx.tap.subscribe(onNext: {
+                    [weak self] in guard let self = self else { return }
+                    if let buttonTrigger = self.buttonTrigger {
+                        buttonTrigger()
+                    }
+                }).disposed(by: button.rx.disposeBag)
+            } else {
+                button.rx.tap().subscribe(onNext: {
+                    [weak self] in guard let self = self else { return }
+                    if let buttonTrigger = self.buttonTrigger {
+                        buttonTrigger()
+                    }
+                }).disposed(by: button.rx.disposeBag)
+            }
         }
         
         contenView?.snp.remakeConstraints { (make) in
@@ -206,9 +231,10 @@ public extension UIView {
                                       text: text,
                                       textFont: App.emptyTitleFont ?? UIFont.systemFont(ofSize: 16),
                                       textColor: App.emptyTitleColor ?? UIColor.hex(0xcccccc),
-                                      buttonTitle: localized(name: "refresh"),
+                                      buttonTitle: App.emptyNotNetworkButtonCustomView == nil ? localized(name: "refresh") : nil,
                                       buttonTitleFont: App.emptyButtonTitleFont ?? UIFont.systemFont(ofSize: 16),
                                       buttonTitleColor: App.emptyButtonTitleColor ?? UIColor.hex(0xcccccc),
+                                      buttonCustomView: App.emptyNotNetworkButtonCustomView ?? nil,
                                       buttonTrigger: retry)
             objc_setAssociatedObject(self, &networkErrorEmptyView, emptyView, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             emptyView.observerHideCompletion(completion: {
@@ -243,8 +269,8 @@ public extension UIView {
                                       textFont: titleFont ?? App.emptyTitleFont,
                                       textColor: titleColor ?? App.emptyTitleColor,
                                       buttonTitle: buttonTitle,
-                                      buttonTitleFont: buttonTitleFont ??  App.emptyButtonTitleFont,
-                                      buttonTitleColor: buttonTitleColor ??  App.emptyButtonTitleColor,
+                                      buttonTitleFont: buttonTitleFont ?? App.emptyButtonTitleFont,
+                                      buttonTitleColor: buttonTitleColor ?? App.emptyButtonTitleColor,
                                       buttonCustomView: buttonCustomView,
                                       buttonTrigger: buttonTrigger)
             objc_setAssociatedObject(self, &emptyViewKey, emptyView, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)

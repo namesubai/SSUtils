@@ -159,12 +159,12 @@ open class AllRoundedCornerView: View {
     public var conerRadious: CGFloat = 20.wScale {
         didSet {
             layer.cornerRadius = conerRadious
+            layoutIfNeeded()
         }
     }
 
     open override func make() {
         super.make()
-        backgroundColor = UIColor.hex(0x1E1D33)
         layer.cornerRadius = conerRadious
         layer.masksToBounds = true
     }

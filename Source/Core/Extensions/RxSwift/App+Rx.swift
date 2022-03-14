@@ -7,6 +7,7 @@
 
 import Foundation
 import RxSwift
+import RxCocoa
 import YYText
 import UIKit
 
@@ -46,5 +47,13 @@ extension Reactive where Base: UIButton {
         Binder(self.base) { button, title in
             button.setTitleColor(title, for: controlState)
         }
+    }
+}
+
+
+extension Reactive where Base: UITextField {
+    /// Reactive wrapper for `text` property.
+    public var realText: Observable<String?> {
+        Observable.merge(text.asObservable(), base.rx.observe(String.self, "text"))
     }
 }

@@ -7,12 +7,14 @@
 
 import Foundation
 import NSObject_Rx
+import UIKit
 
 public extension UIViewController {
     enum ButtonItemType {
         case title(title: String, color: UIColor? = Colors.subTitle, font: UIFont = UIFont.systemFont(ofSize: 18))
         case image(_ image: UIImage?)
         case custom(customView: UIView)
+        case space(width: CGFloat)
     }
     
     var navigationBarHeight: CGFloat {
@@ -20,6 +22,10 @@ public extension UIViewController {
             return navigationBar.frame.height
         }
         return 0
+    }
+    
+    var statusBarHeight: CGFloat {
+        App.statusBarHeight
     }
     
     var navigationBarAndStatusBarHeight: CGFloat {
@@ -64,8 +70,66 @@ public extension UIViewController {
                 }
             }).disposed(by: rx.disposeBag)
             return barButtonItem
+        case .space(let width):
+            let barButtonItem = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+            barButtonItem.width = width
+            self.navigationItem.setLeftBarButtonItems([barButtonItem], animated: animated)
+            return barButtonItem
         }
     }
+    
+    @discardableResult func setLeftBarButtonItems(itemTypes: [ButtonItemType],animated: Bool = false, onTigger: ((Int) -> Void)? = nil) -> [UIBarButtonItem] {
+        var barButtonItems = [UIBarButtonItem]()
+        for i in 0..<itemTypes.count {
+            let itemType = itemTypes[i]
+            var barButtonItem: UIBarButtonItem!
+            var isSpace: Bool = false
+            switch itemType {
+            case .title(let title, let color, let font):
+                barButtonItem = UIBarButtonItem(title: title, style: .plain, target: nil, action: nil)
+                barButtonItem.setTitleTextAttributes([NSAttributedString.Key.font: font,NSAttributedString.Key.foregroundColor : color as Any], for: .normal)
+                barButtonItem.setTitleTextAttributes([NSAttributedString.Key.font: font,NSAttributedString.Key.foregroundColor : color as Any], for: .highlighted)
+                 
+            case .image(let image):
+                barButtonItem = UIBarButtonItem(image: image?.withRenderingMode(.alwaysOriginal), style: .plain, target: nil, action: nil)
+                
+            case .custom(let customView):
+                barButtonItem = UIBarButtonItem(customView: customView)
+                
+            case .space(let width):
+                barButtonItem = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+                barButtonItem.width = width
+                isSpace = true
+            }
+            barButtonItems.append(barButtonItem)
+            if !isSpace {
+                barButtonItem.rx.tap.asObservable().subscribe(onNext:{
+                    if onTigger != nil {
+                        onTigger!(i)
+                    }
+                }).disposed(by: rx.disposeBag)
+                
+                if let button = barButtonItem.customView as? UIButton {
+                    button.rx.tap.asObservable().subscribe(onNext:{
+                        if onTigger != nil {
+                            onTigger!(i)
+                        }
+                    }).disposed(by: rx.disposeBag)
+                } else if let view = barButtonItem.customView as? UIView {
+                    view.rx.tap().subscribe(onNext:{
+                        if onTigger != nil {
+                            onTigger!(i)
+                        }
+                    }).disposed(by: rx.disposeBag)
+                }
+            }
+           
+        }
+        self.navigationItem.setLeftBarButtonItems(barButtonItems, animated: animated)
+
+        return barButtonItems
+    }
+    
     
     @discardableResult func setRightBarButtonItem(itemType: ButtonItemType,animated: Bool = false, onTigger: (() -> Void)? = nil) -> UIBarButtonItem {
         switch itemType {
@@ -98,10 +162,64 @@ public extension UIViewController {
                 }
             }).disposed(by: rx.disposeBag)
             return barButtonItem
+        case .space(let width):
+            let barButtonItem = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+            barButtonItem.width = width
+            self.navigationItem.setLeftBarButtonItems([barButtonItem], animated: animated)
+            return barButtonItem
         }
     }
     
-    
+    @discardableResult func setRightBarButtonItems(itemTypes: [ButtonItemType],animated: Bool = false, onTigger: ((Int) -> Void)? = nil) -> [UIBarButtonItem] {
+        var barButtonItems = [UIBarButtonItem]()
+        for i in 0..<itemTypes.count {
+            let itemType = itemTypes[i]
+            var barButtonItem: UIBarButtonItem!
+            var isSpace: Bool = false
+            switch itemType {
+            case .title(let title, let color, let font):
+                barButtonItem = UIBarButtonItem(title: title, style: .plain, target: nil, action: nil)
+                barButtonItem.setTitleTextAttributes([NSAttributedString.Key.font: font,NSAttributedString.Key.foregroundColor : color as Any], for: .normal)
+                barButtonItem.setTitleTextAttributes([NSAttributedString.Key.font: font,NSAttributedString.Key.foregroundColor : color as Any], for: .highlighted)
+                 
+            case .image(let image):
+                barButtonItem = UIBarButtonItem(image: image?.withRenderingMode(.alwaysOriginal), style: .plain, target: nil, action: nil)
+                
+            case .custom(let customView):
+                barButtonItem = UIBarButtonItem(customView: customView)
+                
+            case .space(let width):
+                barButtonItem = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+                barButtonItem.width = width
+                isSpace = true
+            }
+            barButtonItems.append(barButtonItem)
+            if !isSpace {
+                barButtonItem.rx.tap.asObservable().subscribe(onNext:{
+                    if onTigger != nil {
+                        onTigger!(i)
+                    }
+                }).disposed(by: rx.disposeBag)
+                if let button = barButtonItem.customView as? UIButton {
+                    button.rx.tap.asObservable().subscribe(onNext:{
+                        if onTigger != nil {
+                            onTigger!(i)
+                        }
+                    }).disposed(by: rx.disposeBag)
+                } else if let view = barButtonItem.customView as? UIView {
+                    view.rx.tap().asObservable().subscribe(onNext:{
+                        if onTigger != nil {
+                            onTigger!(i)
+                        }
+                    }).disposed(by: rx.disposeBag)
+                }
+            }
+           
+        }
+        self.navigationItem.setRightBarButtonItems(barButtonItems, animated: animated)
+
+        return barButtonItems
+    }
 }
 
 

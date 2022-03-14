@@ -18,7 +18,7 @@
 "now" = "now";
 
 "network_error_common_msg" = "The Connection with the Server has failed. Please try again";
-"noMoreData" = "no more data";
+"noMoreData" = "Tidak ada data lainnya";
 
-"web_load_failed" = "Load Failed";
-"web_load_failed_refresh" = "Refresh";
+"web_load_failed" = "Ada kesalahan, silakan muat ulang";
+"web_load_failed_refresh" = "Muat ulang";
