@@ -45,13 +45,24 @@ public class CustomFooterRefreshView: MJRefreshAutoNormalFooter {
         stateLabel?.isHidden = true
         isRefreshingTitleHidden = true
         triggerAutomaticallyRefreshPercent = 0.1
-        setTitle(localized(name: "noMoreData"), for: .noMoreData)
+        if App.isShowFooterNoMoreData {
+            setTitle(localized(name: "noMoreData"), for: .noMoreData)
+        } else {
+            setTitle("", for: .noMoreData)
+        }
         setTitle("", for: .idle)
         setTitle("", for: .pulling)
         setTitle("", for: .refreshing)
         setTitle("", for: .willRefresh)
        
     }
+    
+    var isHideNoMoreData: Bool = false {
+        didSet {
+            setTitle(isHideNoMoreData ? "" : localized(name: "noMoreData"), for: .noMoreData)
+        }
+    }
+    
     var customLoadingView: UIView? {
         didSet {
             if customLoadingView != nil   {

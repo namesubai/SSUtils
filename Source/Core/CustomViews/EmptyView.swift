@@ -7,6 +7,8 @@
 
 import UIKit
 import SnapKit
+import RxCocoa
+import RxSwift
 
 open class EmptyView: UIView {
     
@@ -16,7 +18,7 @@ open class EmptyView: UIView {
     public lazy var button: GradientButton = {
         let button = GradientButton.makeButton(type:.system)
         button.contentEdgeInsets = UIEdgeInsets(top: 13, left: 27, bottom: 13, right: 27).wScale
-        button.gradientLayer.colors = [UIColor.hex(0x51E5E8)?.cgColor, UIColor.hex(0x32A6F9)?.cgColor]
+        button.gradientLayer.colors = [UIColor.hex(0x51E5E8)!.cgColor, UIColor.hex(0x32A6F9)!.cgColor]
         button.autoCornerRadious = true
         return button
     }()
@@ -32,6 +34,8 @@ open class EmptyView: UIView {
         imageV.image = image
         return imageV
     }()
+    
+    
     public private(set) var buttonCustomView: UIView?
     public private(set) var contenView: UIView?
     public var text: String?
@@ -41,15 +45,35 @@ open class EmptyView: UIView {
     public var buttonTitleFont: UIFont?
     public var buttonTitleColor: UIColor?
     public var image: UIImage?
-
-    private var centerXConstraint: Constraint?
-    private var centerYConstraint: Constraint?
+    public var textTopMargin: CGFloat?
+    public var buttonTopMargin: CGFloat?
+    
     private var buttonTrigger: (() -> Void)? = nil
     var centerOffset: CGPoint = .zero {
         didSet {
-            centerXConstraint?.update(offset: centerOffset.x)
-            centerYConstraint?.update(offset: centerOffset.y)
-
+            layoutEmptyView()
+        }
+    }
+    
+    private func layoutEmptyView() {
+        if let contenView = contenView {
+            let size = contenView.systemLayoutSizeFitting(CGSize(width: App.width, height: CGFloat(MAXFLOAT)))
+            self.ss_size = size
+            if let superview = superview {
+                var insets: UIEdgeInsets = .zero
+                if let scrollView = superview as? UIScrollView {
+                    insets = scrollView.safeAreaInsets
+                }
+                var headerHeight: CGFloat = 0
+                if let tableView = superview as? UITableView, let headerView = tableView.tableHeaderView {
+                    headerHeight = headerView.ss_h
+                }
+                var topMargin = insets.top
+                let leftMargin = insets.left
+                let superSize = superview.bounds.size
+                print(superSize)
+                self.ss_center = CGPoint(x: superSize.width / 2 + centerOffset.x - leftMargin, y: superSize.height / 2 + centerOffset.y - topMargin + headerHeight)
+            }
         }
     }
     
@@ -66,7 +90,7 @@ open class EmptyView: UIView {
                 make.size.equalTo(image.size.wScale)
             }
             let imageSize  = image.size.wScale
-            topMargin += imageSize.height + 18.wScale
+            topMargin += imageSize.height + (textTopMargin ?? 18.wScale)
             totalHeight = imageSize.height
         }
         
@@ -81,7 +105,7 @@ open class EmptyView: UIView {
                 make.width.equalTo(App.width - 120.wScale)
             }
             let labelHeight = titleLabel.systemLayoutSizeFitting(CGSize(width: App.width - 120.wScale, height: CGFloat(MAXFLOAT))).height
-            topMargin += labelHeight + 15.wScale
+            topMargin += labelHeight + (buttonTopMargin ?? 15.wScale)
             totalHeight += labelHeight + 18.wScale
         }
         
@@ -90,7 +114,7 @@ open class EmptyView: UIView {
             button.setTitleColor(buttonTitleColor, for: .normal)
             button.titleLabel?.font = buttonTitleFont
             contenView?.addSubview(button)
-
+            
             button.snp.remakeConstraints { (make) in
                 make.top.equalTo(topMargin)
                 make.centerX.equalToSuperview()
@@ -115,7 +139,7 @@ open class EmptyView: UIView {
                     make.size.equalTo(buttonCustomView.ss_size)
                 }
             } else {
-                buttonCustomView.snp.makeConstraints { (make) in
+                buttonCustomView.snp.remakeConstraints { (make) in
                     make.top.equalTo(topMargin)
                     make.centerX.equalToSuperview()
                 }
@@ -143,23 +167,24 @@ open class EmptyView: UIView {
         }
         
         contenView?.snp.remakeConstraints { (make) in
-//            make.center.equalToSuperview()
             make.width.equalTo(App.width)
             make.height.equalTo(totalHeight)
-            make.edges.equalToSuperview()
+            make.top.leading.trailing.equalTo(0)
         }
-
+        
     }
     
     public init(image: UIImage?,
-         text: String?,
-         textFont: UIFont?,
-         textColor: UIColor?,
-         buttonTitle:String?,
-         buttonTitleFont: UIFont?,
-         buttonTitleColor: UIColor?,
-         buttonCustomView: UIView? = nil,
-         buttonTrigger:(() -> Void)?) {
+                text: String?,
+                textFont: UIFont?,
+                textColor: UIColor?,
+                buttonTitle:String?,
+                buttonTitleFont: UIFont?,
+                buttonTitleColor: UIColor?,
+                buttonCustomView: UIView? = nil,
+                textTopMargin: CGFloat? = nil,
+                buttonTopMargin: CGFloat? = nil,
+                buttonTrigger:(() -> Void)?) {
         self.image = image
         self.text = text
         self.textFont = textFont
@@ -169,24 +194,41 @@ open class EmptyView: UIView {
         self.buttonTitleColor = buttonTitleColor
         self.buttonCustomView = buttonCustomView
         self.buttonTrigger = buttonTrigger
+        self.textTopMargin = textTopMargin
+        self.buttonTopMargin = buttonTopMargin
         super.init(frame: .zero)
         let contenView = UIView()
         addSubview(contenView)
         self.contenView = contenView
         refreshLayout()
-  
+        
     }
-    
+    var showDisposeBag = DisposeBag()
     public func showEmptyView(_ onView: UIView) {
         onView.addSubview(self)
-        self.snp.makeConstraints { (make) in
-            centerXConstraint = make.centerX.equalToSuperview().constraint
-            centerYConstraint = make.centerY.equalToSuperview().offset(-(App.navAndStatusBarHeight)).constraint
-//            make.edges.equalToSuperview()
+        layoutEmptyView()
+        showDisposeBag = DisposeBag()
+        onView.rx.methodInvoked(#selector(UIView.layoutSubviews)).subscribe(onNext: {
+            [weak self] _ in guard let self = self else { return }
+            self.layoutEmptyView()
+        }).disposed(by: showDisposeBag)
+        
+        if let scrollView = onView as? UIScrollView {
+            scrollView.rx.observe(UIEdgeInsets.self, "safeAreaInsets").subscribe(onNext: {
+                [weak self] _ in guard let self = self else { return }
+                self.layoutEmptyView()
+            }).disposed(by: showDisposeBag)
+        }
+        if let scrollView = onView as? UITableView {
+            onView.rx.methodInvoked(#selector(setter: UITableView.tableHeaderView)).subscribe(onNext: {
+                [weak self] _ in guard let self = self else { return }
+                self.layoutEmptyView()
+            }).disposed(by: showDisposeBag)
         }
     }
     
     public func hide() {
+        self.isHidden = true
         self.removeFromSuperview()
         if  let hideCompletion = hideCompletion {
             hideCompletion()
@@ -201,21 +243,30 @@ open class EmptyView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
     /*
-    // Only override draw() if you perform custom drawing.
-    // An empty implementation adversely affects performance during animation.
-    override func draw(_ rect: CGRect) {
-        // Drawing code
-    }
-    */
-
+     // Only override draw() if you perform custom drawing.
+     // An empty implementation adversely affects performance during animation.
+     override func draw(_ rect: CGRect) {
+     // Drawing code
+     }
+     */
+    
 }
 
 private var emptyViewKey: Int8 = 0
 private var networkErrorEmptyView: Int8 = 0
+private var originalColorKey: Int8 = 0
 
 public extension UIView {
     
 //
+    var originalColor: UIColor? {
+        set {
+            objc_setAssociatedObject(self, &originalColorKey, originalColor, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+        get {
+            objc_getAssociatedObject(self, &originalColorKey) as? UIColor
+        }
+    }
     
     var notNetworkEmptyView: EmptyView? {
         objc_getAssociatedObject(self, &networkErrorEmptyView) as? EmptyView
@@ -225,22 +276,29 @@ public extension UIView {
         if let emptyView = objc_getAssociatedObject(self, &networkErrorEmptyView) as? EmptyView {
             return emptyView
         } else {
-            let image = App.emptyNotNetworkImage ?? image("notNetwork")
+            let image = App.emptyNotNetworkImage ?? .image("notNetwork")
             let text = App.emptyNotNetworkText ?? localized(name: "noInternetAccess")
             let emptyView = EmptyView(image: image,
                                       text: text,
                                       textFont: App.emptyTitleFont ?? UIFont.systemFont(ofSize: 16),
                                       textColor: App.emptyTitleColor ?? UIColor.hex(0xcccccc),
-                                      buttonTitle: App.emptyNotNetworkButtonCustomView == nil ? localized(name: "refresh") : nil,
+                                      buttonTitle: App.emptyNotNetworkButtonCustomView?() == nil ? localized(name: "refresh") : nil,
                                       buttonTitleFont: App.emptyButtonTitleFont ?? UIFont.systemFont(ofSize: 16),
                                       buttonTitleColor: App.emptyButtonTitleColor ?? UIColor.hex(0xcccccc),
-                                      buttonCustomView: App.emptyNotNetworkButtonCustomView ?? nil,
+                                      buttonCustomView: App.emptyNotNetworkButtonCustomView?() ?? nil,
+                                      textTopMargin: App.emptyTitleTopMargin,
+                                      buttonTopMargin: App.emptyButtonTopMargin,
                                       buttonTrigger: retry)
             objc_setAssociatedObject(self, &networkErrorEmptyView, emptyView, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             emptyView.observerHideCompletion(completion: {
                 objc_setAssociatedObject(self, &networkErrorEmptyView, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             })
+            if let originalColor = originalColor  {
+                backgroundColor = originalColor
+            }
+            originalColor = backgroundColor
             emptyView.showEmptyView(self)
+            backgroundColor = App.emptyBgColor
             return emptyView
         }
         
@@ -249,6 +307,10 @@ public extension UIView {
     func hideNetworkErrorEmptyView() {
         if let emptyView = objc_getAssociatedObject(self, &networkErrorEmptyView) as? EmptyView {
             emptyView.hide()
+            objc_setAssociatedObject(self, &networkErrorEmptyView, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+        if let originalColor = originalColor  {
+            backgroundColor = originalColor
         }
     }
     
@@ -260,7 +322,7 @@ public extension UIView {
                                           buttonTitleFont: UIFont? = nil,
                                           buttonTitleColor: UIColor? = nil,
                                           buttonCustomView: UIView? = nil,
-                                          buttonTrigger: (() -> Void)? = nil ) -> EmptyView? {
+                                          buttonTrigger: (() -> Void)? = nil) -> EmptyView? {
         if let emptyView = objc_getAssociatedObject(self, &emptyViewKey) as? EmptyView {
             return emptyView
         } else {
@@ -277,7 +339,12 @@ public extension UIView {
             emptyView.observerHideCompletion(completion: {
                 objc_setAssociatedObject(self, &emptyViewKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             })
+            if let originalColor = originalColor  {
+                backgroundColor = originalColor
+            }
+            originalColor = backgroundColor
             emptyView.showEmptyView(self)
+            backgroundColor = App.emptyBgColor
             return emptyView
         }
     }
@@ -289,6 +356,10 @@ public extension UIView {
     func hideEmptyView() {
         if let emptyView = objc_getAssociatedObject(self, &emptyViewKey) as? EmptyView {
             emptyView.hide()
+            objc_setAssociatedObject(self, &emptyViewKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+        if let originalColor = originalColor  {
+            backgroundColor = originalColor
         }
     }
 }

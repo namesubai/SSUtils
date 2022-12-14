@@ -14,7 +14,11 @@ private class CustomPageIndicator: Button {
     
 }
 
-open class CustomPageControl: View {
+open class CustomPageControl: View, EventTrigger {
+    
+    public enum Event {
+        case selectPageNum(num: Int)
+    }
     
     private lazy var containerStackView: HorizontalStackView = {
         let stackView = HorizontalStackView()
@@ -69,9 +73,8 @@ open class CustomPageControl: View {
             indicators.removeAll()
             pageWidthConstraints.removeAll()
             pageHeightConstraints.removeAll()
-            for _ in 0..<numOfPages {
+            for index in 0..<numOfPages {
                 let indicator = CustomPageIndicator()
-        
                 indicator.setBackgroundImage(UIImage(color: pageIndicatorNormalColor, size: CGSize(width: pageIndicatorSize.width * UIScreen.main.scale, height: pageIndicatorSize.height * UIScreen.main.scale)), for: .normal)
                 indicator.setBackgroundImage(UIImage(color: pageIndicatorSelectedColor, size: CGSize(width: pageIndicatorSize.width * UIScreen.main.scale, height: pageIndicatorSize.height * UIScreen.main.scale)), for: .selected)
                 indicator.layer.cornerRadius = pageIndicatorSize.height / 2
@@ -84,6 +87,17 @@ open class CustomPageControl: View {
                     self.pageWidthConstraints.append(widthConstraints)
                     self.pageHeightConstraints.append(heightConstraints)
                 }
+//                let touchButton = UIButton()
+//                addSubview(touchButton)
+//                touchButton.snp.makeConstraints { make in
+//                    make.width.equalTo(indicator.snp.width)
+//                    make.centerY.equalTo(indicator.snp.centerY)
+//                    make.height.equalTo(20)
+//                }
+                indicator.rx.tap().subscribe(onNext: {
+                    [weak self] in guard let self = self else { return }
+                    self.triggerEvent?(.selectPageNum(num: index))
+                }).disposed(by: indicator.rx.disposeBag)
             }
             layoutIfNeeded()
             currentPageNum = 0
@@ -96,6 +110,14 @@ open class CustomPageControl: View {
         containerStackView.snp.makeConstraints { (make) in
             make.edges.equalTo(0).priority(.high)
         }
+    }
+    
+    open override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        
+        if let view = self.indicators.first(where: {$0.frame.inset(by: UIEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)).contains(CGPoint(x: point.x, y: point.y))}) {
+            return view
+        }
+        return super.hitTest(point, with: event)
     }
     /*
     // Only override draw() if you perform custom drawing.

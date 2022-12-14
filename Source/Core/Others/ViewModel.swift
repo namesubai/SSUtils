@@ -45,6 +45,7 @@ public struct NoData {
     public var buttonTitleFont: UIFont?
     public var buttonTitleColor: UIColor?
     public var customButtonView: UIView?
+    public var error: Error?
     public init(title: String? = nil,
                 titleFont: UIFont? = nil,
                 titleColor: UIColor? = nil,
@@ -74,7 +75,7 @@ open class ViewModel: NSObject {
     public var size: Int = 20
     public var msgToast = SuccessMsgTracker()
     public var loading = ActivityIndicator()
-    public var customLoading = ActivityIndicator()
+    public var customLoading = CustomActivityIndicator()
     public var clearLoading = ActivityIndicator()
     public var headerLoading = ActivityIndicator()
     public var footerLoading = ActivityIndicator()
@@ -82,12 +83,16 @@ open class ViewModel: NSObject {
     public var showFooterRefresh = BehaviorRelay<Bool>(value: false)
     public var error = ErrorTracker()
     public var emptyError = ErrorTracker()
+    public var emptyNoDataError = EmptyTracker()
 
+    public var haveContents = PublishRelay<Bool>()
     public var noData = PublishRelay<NoData?>()
     public var noNetwork = PublishRelay<Bool>()
     public var showHud = PublishSubject<String?>()
     public var showCustomLoading = PublishRelay<Bool>()
+    public var changeCustomLoadingText = PublishSubject<String>()
     deinit {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
     }
 }
+

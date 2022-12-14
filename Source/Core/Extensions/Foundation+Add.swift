@@ -41,19 +41,31 @@ public extension Int {
 public extension Array {
     func randomSubArray(size: Int) -> [Element] {
         var total = 0
-        var array = [Element]()
         var temp = Array(self)
 
         if count >= size {
+            var array = [Element]()
             while total < size{
                 let index = Int.random(in: 0..<temp.count)
                 array.append(temp[index])
                 temp.remove(at: index)
                 total += 1
             }
+            return array
+        } else {
+            return temp
         }
         
-        return array
        
+    }
+}
+
+public extension Optional where Wrapped == Int {
+    var toStr: String? {
+        if self == nil {
+            return nil
+        } else {
+            return "\(self!)"
+        }
     }
 }

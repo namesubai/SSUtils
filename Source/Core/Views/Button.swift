@@ -19,7 +19,6 @@ open class Button: UIButton {
     public var overrideAlignmentRectInsets: UIEdgeInsets?
     private var isShowingRedCacheKey: String?
     public var contentSize: CGSize = .zero
-
     open override var isSelected: Bool {
         didSet{
             if isSelected {

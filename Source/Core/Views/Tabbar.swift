@@ -11,7 +11,8 @@ open class Tabbar: UITabBar {
 
     public var cornerRadious: CGFloat = 0 {
         didSet {
-           layoutIfNeeded()
+            setNeedsLayout()
+            layoutIfNeeded()
         }
     }
     
@@ -27,6 +28,7 @@ open class Tabbar: UITabBar {
     public var lineView: UIView = {
         let view = UIView()
         view.backgroundColor = Colors.line
+        view.isHidden = true
         return view
     }()
     
@@ -36,11 +38,31 @@ open class Tabbar: UITabBar {
         addSubview(lineView)
     }
     
+    open override var standardAppearance: UITabBarAppearance {
+        didSet {
+            setNeedsLayout()
+            layoutIfNeeded()
+        }
+    }
+    
+    
     open override func layoutSubviews() {
         super.layoutSubviews()
+        items?.forEach({ item in
+            let appearance = self.standardAppearance
+            let tabBarItemAppearance = UITabBarItemAppearance()
+            tabBarItemAppearance.normal.titleTextAttributes = item.titleTextAttributes(for: .normal) ?? [NSAttributedString.Key : Any]()
+            tabBarItemAppearance.selected.titleTextAttributes = item.titleTextAttributes(for: .selected) ?? [NSAttributedString.Key : Any]()
+            appearance.stackedLayoutAppearance = tabBarItemAppearance
+            
+            item.standardAppearance = appearance
+            if #available(iOS 15.0, *) {
+                item.scrollEdgeAppearance = appearance
+            } 
+        })
         addCorner(radious: cornerRadious)
         lineView.frame = CGRect(x: cornerRadious, y: 0, width: ss_w - cornerRadious * 2, height: 0.5)
-        if bageViews.count != items?.count {
+        if bageViews.count != items?.count || bageViews.first?.superview == nil {
             bageViews.forEach({
                 view in
                 view.removeFromSuperview()

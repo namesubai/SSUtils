@@ -6,11 +6,19 @@
 //
 
 import Foundation
+import Photos
+import RxCocoa
+import RxSwift
+
 //import StoreKit
 private let defaulAppStoreID = App.defaulAppStoreID
 public extension NSObject {
     static var className: String {
         return NSStringFromClass(self)
+    }
+    
+    var className: String {
+        NSStringFromClass(classForCoder)
     }
     
     func jumpToAppStore(_ url: String?) {
@@ -89,5 +97,99 @@ public extension NSObject {
             let scaledImage = bitmap.makeImage()
             return UIImage.init(cgImage: scaledImage!)
         }
+    
+    func switchTabBarSelect(index: Int) {
+        guard let tabbarVC = UIApplication.shared.keyWindow?.rootViewController as? UITabBarController, tabbarVC.tabBar.items?.count ?? 0 > index else {
+            return
+        }
+        func switchToHome() {
+            
+            if tabbarVC.selectedIndex != index {
+                tabbarVC.selectedIndex = index
+            }
+        }
+        
+        func popToRoot() {
+            if let nav = tabbarVC.selectedViewController as? UINavigationController, nav.viewControllers.count > 1 {
+                nav.popRootViewController() {
+                    DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.1) {
+                        switchToHome()
+                    }
+                }
+                
+            } else {
+                switchToHome()
+            }
+        }
+        
+        if let presentingViewController =  UIViewController.getCurrentViewController()?.presentingViewController {
+            presentingViewController.dismiss(animated: false) {
+                popToRoot()
+            }
+        } else {
+            popToRoot()
+        }
+    }
+    
+    func videoTransformVoice(videoURL: URL, outputURL: URL, timeout: Int? = nil) -> Observable<(URL?, CMTime?)> {
+        var r = Observable<(URL?, CMTime?)>.create { [weak self] observer in guard let self = self else {
+            observer.onNext((nil, nil))
+            observer.onCompleted()
+            return Disposables.create {
+            }
+        }
+            self.videoTransformVoice(videoURL: videoURL, outputURL: outputURL) { outputurl, duration, error in
+                if let error = error {
+                    observer.onError(error)
+                } else {
+                    observer.onNext((outputurl, duration))
+                    observer.onCompleted()
+                }
+            }
+            return Disposables.create {
+            }
+        }
+        if let timeout = timeout {
+            r = r.timeout(.seconds(timeout), scheduler: MainScheduler.instance)
+        }
+        return r
+    }
+    
+    func videoTransformVoice(videoURL: URL, outputURL: URL, completion: @escaping(URL?, CMTime?, Error?) -> Void) {
+        let videoAsset = AVAsset(url: videoURL)
+        let composition = AVMutableComposition()
+        /// 创建轨道
+        if let audioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid), let track = videoAsset.tracks(withMediaType: .audio).first {
+            /// 获取音频轨道
+            do {
+                try audioTrack.insertTimeRange(CMTimeRange(start: .zero, duration: videoAsset.duration), of: track, at: .zero)
+                if let extporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetAppleM4A) {
+                    extporter.outputURL = outputURL
+                    extporter.outputFileType = AVFileType.m4a
+                    extporter.shouldOptimizeForNetworkUse = true
+                    extporter.exportAsynchronously(completionHandler: {
+                        DispatchQueue.main.async {
+                            if extporter.status == .completed {
+                                completion(outputURL, videoAsset.duration, nil)
+                            } else  {
+                                let error = extporter.error
+                                completion(nil, nil, error)
+                            }
+                        }
+                    })
+                } else {
+                    let error = NSError(domain: "videoTransformVoice.Error", code: -112121)
+                    completion(nil, nil, error)
+                }
+                
+            } catch  {
+                let error = NSError(domain: "videoTransformVoice.Error", code: -112121)
+                completion(nil, nil, error)
+            }
+        } else {
+            let error = NSError(domain: "videoTransformVoice.Error", code: -112121)
+            completion(nil, nil, error)
+        }
+    }
 }
 

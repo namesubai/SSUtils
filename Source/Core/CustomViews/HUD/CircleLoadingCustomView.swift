@@ -16,9 +16,17 @@ public class CircleLoadingCustomView: UIView, SSProgressCustom {
     
     public var text: String? = nil
     
-    public var textColor: UIColor? = nil
+    public var textColor: UIColor? = nil {
+        didSet {
+            progressLabel.textColor = textColor
+        }
+    }
     
-    public var textFont: UIFont? = nil
+    public var textFont: UIFont? = nil {
+        didSet {
+            progressLabel.font = textFont
+        }
+    }
     
     public var customSize: CGSize  = CGSize(width: 30, height: 30)
     
@@ -39,6 +47,7 @@ public class CircleLoadingCustomView: UIView, SSProgressCustom {
                 let progressBezierPath = UIBezierPath.init(arcCenter: CGPoint(x: customSize.width / 2, y: customSize.height / 2), radius: customSize.width / 2, startAngle: CGFloat(-0.5 * Double.pi), endAngle: CGFloat(-0.5 * Double.pi) + CGFloat(2 * Double.pi) * progress, clockwise: true)
 
                 progressShapLayer.path = progressBezierPath.cgPath
+                progressLabel.text = "\(Int((progress / 1) * 100.0))%"
             }
         }
         get {
@@ -48,15 +57,39 @@ public class CircleLoadingCustomView: UIView, SSProgressCustom {
     
     public var loadingType: LoadingType
     private var progressShapLayer: CAShapeLayer!
+    public var normalColor: UIColor? {
+        didSet {
+            bgShapLayer.strokeColor = normalColor?.cgColor
+        }
+    }
+    public var trackColor: UIColor? {
+        didSet {
+            progressShapLayer.strokeColor = trackColor?.cgColor
+        }
+    }
+    public var progreLineWidth: CGFloat = 3 {
+        didSet {
+            progressShapLayer.lineWidth = progreLineWidth
+        }
+    }
     
+    private var bgShapLayer: CAShapeLayer!
+    private var progressLabel: UILabel = {
+        let label = UILabel()
+        label.textColor = UIColor.white
+        label.font = UIFont.systemFont(ofSize: 10)
+        label.adjustsFontSizeToFitWidth = true
+        label.textAlignment = .center
+        return label
+    }()
     public init(type: LoadingType) {
         self.loadingType = type
         super.init(frame: .zero)
-        let bgShapLayer = CAShapeLayer()
+        bgShapLayer = CAShapeLayer()
         bgShapLayer.frame = CGRect(x: 0, y: 0, width: customSize.width, height: customSize.height)
         bgShapLayer.lineWidth = 3
         bgShapLayer.fillColor = UIColor.clear.cgColor
-        bgShapLayer.strokeColor = UIColor.hex(0xffffff)?.withAlphaComponent(0.4).cgColor
+        self.normalColor = UIColor.hex(0xffffff)?.withAlphaComponent(0.4)
         
         let center = CGPoint.init(x: customSize.width/2, y: customSize.height/2)
         let bezierPath = UIBezierPath.init(arcCenter: center, radius: customSize.width / 2, startAngle: CGFloat(-0.5 * Double.pi), endAngle: CGFloat(1.5 * Double.pi), clockwise: true)
@@ -65,9 +98,9 @@ public class CircleLoadingCustomView: UIView, SSProgressCustom {
 
         progressShapLayer = CAShapeLayer()
         progressShapLayer.frame = CGRect(x: 0, y: 0, width: customSize.width, height: customSize.height)
-        progressShapLayer.lineWidth = 3
+        self.progreLineWidth = 3
         progressShapLayer.fillColor = UIColor.clear.cgColor
-        progressShapLayer.strokeColor = UIColor.hex(0xffffff)?.cgColor
+        self.trackColor = UIColor.hex(0xffffff)
         progressShapLayer.lineCap = .round
         
         self.layer.addSublayer(progressShapLayer)
@@ -76,9 +109,17 @@ public class CircleLoadingCustomView: UIView, SSProgressCustom {
             progressShapLayer.path = progressBezierPath.cgPath
             startRotate(duration: 1)
         } 
-        
+        if type == .progress {
+            addSubview(progressLabel)
+        }
     }
     
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        if self.loadingType == .progress {
+            progressLabel.frame = CGRect(x: progreLineWidth, y: progreLineWidth, width: ss_w - progreLineWidth * 2, height: ss_h - progreLineWidth * 2)
+        }
+    }
   
     
     required init?(coder: NSCoder) {

@@ -99,14 +99,8 @@ open class CustomButton: Button {
                     }
                 }
                 var titleSize = CGSize.zero
-                if let titleLabel = titleLabel  {
-                    if maxWidth == nil {
-                        titleLabel.sizeToFit()
-                        titleSize = titleLabel.ss_size
-                    } else {
-                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
-                    }
-                    
+                if let titleLabel = titleLabel, let title = titleLabel.text {
+                    titleSize = titleLabel.autoCalcSize(maxWidth: maxWidth ?? 0)
                 }
                 
                 var height = max(imageSize.height, titleSize.height) + contentEdgeInsets.top + contentEdgeInsets.bottom
@@ -135,13 +129,9 @@ open class CustomButton: Button {
                     }
                 }
                 var titleSize = CGSize.zero
-                if let titleLabel = titleLabel  {
-                    if maxWidth == nil {
-                        titleLabel.sizeToFit()
-                        titleSize = titleLabel.ss_size
-                    } else {
-                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
-                    }
+             
+                if let titleLabel = titleLabel, let title = titleLabel.text {
+                    titleSize = titleLabel.autoCalcSize(maxWidth: maxWidth ?? 0)
                 }
 
                 let totalWidth = imageSize.width + space + titleSize.width
@@ -169,13 +159,9 @@ open class CustomButton: Button {
                     }
                 }
                 var titleSize = CGSize.zero
-                if let titleLabel = titleLabel  {
-                    if maxWidth == nil {
-                        titleLabel.sizeToFit()
-                        titleSize = titleLabel.ss_size
-                    } else {
-                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
-                    }
+                
+                if let titleLabel = titleLabel, let title = titleLabel.text {
+                    titleSize = titleLabel.autoCalcSize(maxWidth: maxWidth ?? 0)
                 }
                 
                 var height = max(imageSize.height, titleSize.height) + contentEdgeInsets.top + contentEdgeInsets.bottom
@@ -205,13 +191,8 @@ open class CustomButton: Button {
                     }
                 }
                 var titleSize = CGSize.zero
-                if let titleLabel = titleLabel  {
-                    if maxWidth == nil {
-                        titleLabel.sizeToFit()
-                        titleSize = titleLabel.ss_size
-                    } else {
-                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
-                    }
+                if let titleLabel = titleLabel, let title = titleLabel.text {
+                    titleSize = titleLabel.autoCalcSize(maxWidth: maxWidth ?? 0)
                 }
 
                 let totalWidth = imageSize.width + space + titleSize.width
@@ -226,8 +207,6 @@ open class CustomButton: Button {
                 if let imageView = imageView {
                     imageView.frame = CGRect(x: titleLabelX, y: (ss_h - imageSize.height)/2, width: imageSize.width, height: imageSize.height)
                 }
-
-                
 
             }
             
@@ -244,16 +223,13 @@ open class CustomButton: Button {
                     totalHeight += imageSize.height
                 }
                 var titleSize = CGSize.zero
-                if let titleLabel = titleLabel  {
-                    if maxWidth == nil {
-                        titleLabel.sizeToFit()
-                        titleSize = titleLabel.ss_size
-                    } else {
-                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
-                    }
+                
+                if let titleLabel = titleLabel, let title = titleLabel.text {
+                    titleSize = titleLabel.autoCalcSize(maxWidth: maxWidth ?? 0)
                     totalHeight += space
                     totalHeight += titleSize.height
                 }
+                
                 
                 var height = totalHeight + contentEdgeInsets.top + contentEdgeInsets.bottom
                 if let minHeight = minHeight,  height < minHeight {
@@ -285,13 +261,9 @@ open class CustomButton: Button {
                     totalHeight += imageSize.height
                 }
                 var titleSize = CGSize.zero
-                if let titleLabel = titleLabel  {
-                    if maxWidth == nil {
-                        titleLabel.sizeToFit()
-                        titleSize = titleLabel.ss_size
-                    } else {
-                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
-                    }
+                
+                if let titleLabel = titleLabel, let title = titleLabel.text {
+                    titleSize = titleLabel.autoCalcSize(maxWidth: maxWidth ?? 0)
                     totalHeight += space
                     totalHeight += titleSize.height
                 }
@@ -321,16 +293,13 @@ open class CustomButton: Button {
                     totalHeight += imageSize.height
                 }
                 var titleSize = CGSize.zero
-                if let titleLabel = titleLabel  {
-                    if maxWidth == nil {
-                        titleLabel.sizeToFit()
-                        titleSize = titleLabel.ss_size
-                    } else {
-                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
-                    }
+
+                if let titleLabel = titleLabel, let title = titleLabel.text {
+                    titleSize = titleLabel.autoCalcSize(maxWidth: maxWidth ?? 0)
                     totalHeight += space
                     totalHeight += titleSize.height
                 }
+                
                 
                 var height = totalHeight + contentEdgeInsets.top + contentEdgeInsets.bottom
                 if let minHeight = minHeight,  height < minHeight {
@@ -365,13 +334,10 @@ open class CustomButton: Button {
                     totalHeight += imageSize.height
                 }
                 var titleSize = CGSize.zero
-                if let titleLabel = titleLabel  {
-                    if maxWidth == nil {
-                        titleLabel.sizeToFit()
-                        titleSize = titleLabel.ss_size
-                    } else {
-                        titleSize = titleLabel.sizeThatFits(CGSize(width: maxWidth!, height: CGFloat(MAXFLOAT)))
-                    }
+            
+                
+                if let titleLabel = titleLabel, let title = titleLabel.text {
+                    titleSize = titleLabel.autoCalcSize(maxWidth: maxWidth ?? 0)
                     totalHeight += space
                     totalHeight += titleSize.height
                 }
@@ -389,8 +355,6 @@ open class CustomButton: Button {
              
             }
         }
-        
-      
         
         if let imageOrigin = imageOrigin , var imageV = imageView {
             imageV.ss_origin = CGPoint(x: imageOrigin.x + contentEdgeInsets.left, y: imageOrigin.y + contentEdgeInsets.top)

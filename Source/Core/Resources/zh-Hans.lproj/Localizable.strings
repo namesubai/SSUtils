@@ -1,0 +1,24 @@
+
+"noInternetAccess" = "无网络访问";
+"second_ago" = "second ago";
+"minute_ago" = "minute ago";
+"hour_ago" = "hour ago";
+"day_ago" = "day ago";
+"week_ago" = "week ago";
+"month_ago" = "month ago";
+"year_ago" = "year ago";
+
+"seconds_ago" = "seconds ago";
+"minutes_ago" = "minutes ago";
+"hours_ago" = "hours ago";
+"days_ago" = "days ago";
+"weeks_ago" = "weeks ago";
+"months_ago" = "months ago";
+"years_ago" = "years ago";
+"now" = "now";
+
+"network_error_common_msg" = "连接失败，请重试。";
+"noMoreData" = "没有更多数据";
+
+"web_load_failed" = "加载失败";
+"web_load_failed_refresh" = "刷新";

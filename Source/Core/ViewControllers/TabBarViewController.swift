@@ -53,7 +53,7 @@ open class TabBarViewController: UITabBarController,Navigatale {
     open var customToastOnView: UIView? = nil
     public var isAutoShowNoNetWrokEmptyView = false
     public var defaultFirstTableView: UITableView?
-    
+    public var emptyCenterOffset: CGPoint?
     public init(viewModel: ViewModel? = nil, navigator: Navigator? = nil) {
         self.viewModel = viewModel
         self.navigator = navigator
@@ -83,23 +83,29 @@ open class TabBarViewController: UITabBarController,Navigatale {
 //        self.tabBar.backgroundImage = UIImage(color: .white)
 //        self.tabBar.shadowImage = UIImage(named: R.image.tabbar_shadow.name)
         // Do any additional setup after loading the view.
-        
+        delegate = self
         self.setValue(Tabbar(), forKey: "tabBar")
-        self.tabBar.barTintColor = Colors.tabBarBackgroud
-        if #available(iOS 15.0, *) {
-            let appearance = UITabBarAppearance()
-            appearance.configureWithTransparentBackground()
-            appearance.backgroundColor = Colors.tabBarBackgroud
-            if App.tabIsTranslucent {
-                appearance.backgroundEffect = UIBlurEffect(style: .light)
-                appearance.backgroundColor = Colors.tabBarBackgroud.withAlphaComponent(0.9)
-            }
-            self.tabBar.standardAppearance = appearance
-            self.tabBar.scrollEdgeAppearance = appearance
-        }
+        updateTabBarAppearance(bgColor: Colors.tabBarBackgroud)
         
         make()
         bind()
+    }
+    
+    open func updateTabBarAppearance(bgColor: UIColor?) {
+    
+        let appearance = UITabBarAppearance()
+        if App.tabIsTranslucent {
+            appearance.configureWithTransparentBackground()
+            appearance.backgroundEffect = UIBlurEffect(style: .light)
+            appearance.backgroundColor = bgColor?.withAlphaComponent(0.9)
+        } else {
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = bgColor
+        }
+        self.tabBar.standardAppearance = appearance
+        if #available(iOS 15.0, *) {
+            self.tabBar.scrollEdgeAppearance = appearance
+        } 
     }
     
     open func make() {
@@ -156,13 +162,13 @@ open class TabBarViewController: UITabBarController,Navigatale {
                     let emptyView = self.toastOnView?.showNetworkErrorEmptyView(){
                         self.notNetworkRetryTrigger.onNext(())
                     }
-                    emptyView?.centerOffset = App.emptyCenterOffset
+                    emptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
                 }
                 
                 if error.errorCode == 6 {
-                    self.toastOnView?.showTextHUD(localized(name: "noInternetAccess"))
+                    self.toastOnView?.showTextHUD(localized(name: "noInternetAccess"), tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
                 } else {
-                    self.toastOnView?.showTextHUD(localized(name: "network_error_common_msg"))
+                    self.toastOnView?.showTextHUD(localized(name: "network_error_common_msg"), tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
                 }
             }
             else {
@@ -181,7 +187,8 @@ open class TabBarViewController: UITabBarController,Navigatale {
             if self.tableView() == nil && self.defaultFirstTableView == nil {
                 self.toastOnView?.hideNetworkErrorEmptyView()
                 if let noData = noData  {
-                    self.toastOnView?.showEmptyView(image: noData.image,
+                    self.toastOnView?.hideEmptyView()
+                    let emptyView = self.toastOnView?.showEmptyView(image: noData.image,
                                                     title: noData.title,
                                                     titleFont: noData.titleFont,
                                                     titleColor: noData.titleColor,
@@ -191,6 +198,7 @@ open class TabBarViewController: UITabBarController,Navigatale {
                                                     buttonCustomView: noData.customButtonView) {
                         self.emptyTrigger.onNext(())
                     }
+                    emptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
                 }else {
                     self.toastOnView?.hideEmptyView()
                 }
@@ -224,8 +232,28 @@ open class TabBarViewController: UITabBarController,Navigatale {
 
 }
 
+extension TabBarViewController: UITabBarControllerDelegate {
+    
+    public func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
+        customTabBar.lineView.isHidden = true
+    }
+}
+
+private var isHideTabbarUseAnimationKey: Int8 = 0
 public extension UITabBarController {
+    
+    var isHideTabbarUseAnimation: Bool {
+        set {
+            objc_setAssociatedObject(self, &isHideTabbarUseAnimationKey, newValue, .OBJC_ASSOCIATION_ASSIGN)
+        }
+        
+        get {
+            (objc_getAssociatedObject(self, &isHideTabbarUseAnimationKey) as? Bool) ?? false
+        }
+    }
+    
     func hideTabbar(animated: Bool = true) {
+        isHideTabbarUseAnimation = true
         if animated {
             UIView.animate(withDuration: 0.25, delay: 0, options: .layoutSubviews) {
                 self.tabBar.ss_y = App.height
@@ -236,10 +264,10 @@ public extension UITabBarController {
         } else {
             self.tabBar.ss_y = App.height
         }
-       
     }
     
     func showTabbar(animated: Bool = true) {
+        isHideTabbarUseAnimation = false
         if animated {
             UIView.animate(withDuration: 0.25) {
                 self.tabBar.ss_y = App.height - self.tabBar.ss_h
@@ -247,6 +275,7 @@ public extension UITabBarController {
         } else {
             self.tabBar.ss_y = App.height - self.tabBar.ss_h
         }
+        
     }
 }
 
@@ -265,9 +294,9 @@ public extension Reactive where Base: TabBarViewController {
     var cannotClickLoading: Binder<Bool> {
         return Binder(self.base) { viewController, attr in
             if attr {
-                UIApplication.shared.keyWindow?.showLoadingTextHUD(maskType: .clear)
+                (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear)
             }else{
-                UIApplication.shared.keyWindow?.hideHUD()
+                (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.hideHUD()
             }
         }
     }
@@ -281,12 +310,25 @@ public extension Reactive where Base: TabBarViewController {
             }
         }
     }
-    var customLoading: Binder<Bool> {
+    var customLoading: Binder<(Bool, String?, Bool)> {
         return Binder(self.base) { viewController, attr in
-            if attr {
-//                viewController.toastOnView?.showCustomLoadingView()
-            }else{
-//                viewController.toastOnView?.hideCustomLoadingView()
+            let isShow = attr.0
+            let message = attr.1
+            let isCanNotTouch = attr.2
+            if isShow {
+                if isCanNotTouch {
+                    (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear, message)
+                } else {
+                    viewController.toastOnView?.showLoadingTextHUD(message)
+                }
+                
+            } else{
+                
+                if isCanNotTouch {
+                    (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.hideHUD()
+                } else {
+                    viewController.toastOnView?.hideHUD()
+                }
             }
         }
     }

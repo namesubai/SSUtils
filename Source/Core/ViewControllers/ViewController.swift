@@ -19,25 +19,67 @@ open class ViewController: UIViewController,Navigatale {
     open var error = PublishSubject<Error>()
     public let loading = PublishSubject<Bool>()
     public let interactionDisableLoading = PublishSubject<Bool>()
-    public let customLoading = PublishSubject<Bool>()
+    public let customLoading = PublishSubject<(Bool, String?, Bool)>()
     public let messageToast = PublishSubject<String?>()
     public let emptyTrigger = PublishSubject<Void>()
+    public let emptyErrorTrigger = PublishSubject<Void>()
     public let notNetworkRetryTrigger = PublishSubject<Void>()
 
+    open var statusBarStyle: UIStatusBarStyle = .default { didSet { self.setNeedsStatusBarAppearanceUpdate() } }
     open var navigationBarColor: UIColor? = Colors.navBarBackgroud
     public let goBackCompletion = PublishSubject<Void>()
     open var isHideNavigationBar = false
+    /// 是否检查当前vc是否是隐藏导航栏，会影响导航栏的设置
+    open var isNeedCheckCurrentVCHideNavigationBar = false
+    /// 是否在 ViewDisappear 方法设置导航栏
+    open var isViewDisappearSetNavigatorBar = true
+    /// 把导航栏背景透明
     open var isHideNavVisualEffectView = false
     open var isToastOnWidow: Bool = false
+    /// 自定义toast的父视图
     open var customToastOnView: UIView? = nil
+    /// 自定义空界面的父视图
+    open var customEmptyOnView: UIView? = nil
+    /// 自定义文字toast的父视图
+    open var customTextToastOnView: UIView? = nil
     public var isAutoShowNoNetWrokEmptyView = false
     public var defaultFirstTableView: UITableView?
-    ///是否自动展示和隐藏返回按钮
+    /// 是否自动展示和隐藏返回按钮
     public var isAutoShowAndHideNavBackButton = true
     public var isDimiss = false
-
+    /// 用来控制空界面显示；默认是： 当接口有数据返回，空界面noData为nil, 并且不是服务器错误的空界面，才设置为true
+    ///这个属性只有在直接继承ViewController的VC才有效，不是间接继承：例如tableviewController,collectionViewController
+    public var isHasContent = false
+    /// 是否动画隐藏和展示tabbar，不使用系统的方式
+    public var isAutoShowAndHideTabbarNotUseSystem: Bool? = nil {
+        didSet {
+            if isAutoShowAndHideTabbarNotUseSystem == true {
+                hideTabbarWhenPushUseSystem = false
+            } else {
+                hideTabbarWhenPushUseSystem = true
+            }
+        }
+    }
+    
+    public var isShowNavBarBottomLine: Bool = true
+    
+    public var otherleftBarButtonItems = [UIBarButtonItem]() {
+        didSet {
+            refreshBackButton()
+        }
+    }
+    public var backImage: UIImage? {
+        didSet {
+            refreshBackButton()
+        }
+    }
     public var isTranslucent = App.navIsTranslucent
     
+    public var emptyCenterOffset: CGPoint?
+    
+    public var navTitleFont: UIFont?
+    public var navTitleColor: UIColor?
+
     open var bottomToolView: UIView? = nil {
         didSet {
             if let view = oldValue {
@@ -61,12 +103,39 @@ open class ViewController: UIViewController,Navigatale {
         return self.view
     }
     
+    open var textToastOnView: UIView? {
+        if customTextToastOnView != nil {
+            return customTextToastOnView!
+        }
+        return toastOnView
+    }
+    
+    open var emptyOnView: UIView? {
+        if customEmptyOnView != nil {
+            return customEmptyOnView!
+        }
+        return self.view
+    }
+    
+    public weak var currentCustomToastView: SSProgressHUD?
     open override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .default
+        statusBarStyle
     }
     
     public var backButon: UIButton? {
         self.backButton
+    }
+    
+    public var notNetworkAndEmptyTrigger: Observable<Void> {
+        Observable.merge(emptyTrigger, notNetworkRetryTrigger, emptyErrorTrigger)
+    }
+    
+    public var voidAndNotNetworkAndEmptyTrigger:Observable<Void> {
+        Observable.merge(Observable.just(()) ,emptyTrigger, notNetworkRetryTrigger, emptyErrorTrigger)
+    }
+    
+    public var voidAndNotNetworkAndOnlyErrorEmptyTrigger:Observable<Void> {
+        Observable.merge(Observable.just(()), notNetworkRetryTrigger, emptyErrorTrigger)
     }
 
     public init(viewModel: ViewModel? = nil, navigator: Navigator? = nil) {
@@ -91,65 +160,37 @@ open class ViewController: UIViewController,Navigatale {
         }
         view.backgroundColor = Colors.backgroud
         
-        let backImage: UIImage? =  App.navBackImage ?? image("back")
-        
+        let backImage: UIImage? = App.navBackImage ?? .image("back")
         if (!isNavigationRootViewController && backImage != nil && isAutoShowAndHideNavBackButton) || !isAutoShowAndHideNavBackButton {
-            let image = backImage?.withRenderingMode(.alwaysOriginal)
-            backButton.setImage(image, for: .normal)
-            backButton.contentSize = CGSize(width: 40, height: self.navigationBarHeight)
-            backButton.translatesAutoresizingMaskIntoConstraints = false
-            let leftMargin = (40 - image!.size.width) / 2
-            backButton.overrideAlignmentRectInsets = UIEdgeInsets(top: 0, left: leftMargin + 4, bottom: 0, right: 0)
-
-            if image != nil {
-                backButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -leftMargin, bottom: 0, right: 0)
-            }
-            let negativeSeperator = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
-            negativeSeperator.width = 8
-            let backButtonItem = UIBarButtonItem(customView: backButton)
-            self.navigationItem.leftBarButtonItems = [negativeSeperator, backButtonItem]
-            backButton.rx.tap.asDriver().drive(onNext:{[weak self]() in
-                self?.backAction()
-            }).disposed(by: disposeBag)
+            self.backImage = backImage
         }
-
+        backButton.rx.tap.asDriver().drive(onNext:{[weak self]() in
+            self?.backAction()
+        }).disposed(by: backButton.rx.disposeBag)
         make()
         bind()
     }
     
     open override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        if isAutoShowAndHideTabbarNotUseSystem == true {
+            self.tabBarController?.hideTabbar(animated: true)
+        }
         
         if !isHideNavVisualEffectView && !isHideNavigationBar {
-            if #available(iOS 15.0, *) {
-
-                if var appearance = navigationController?.navigationBar.standardAppearance {
-                    if isTranslucent == true {
-                        appearance.backgroundEffect = UIBlurEffect(style: .light)
-                        appearance.backgroundColor = navigationBarColor?.withAlphaComponent(0.8)
-                        
-                    } else {
-                        appearance.configureWithTransparentBackground()
-                        appearance.backgroundColor = navigationBarColor
-                    }
-                    navigationController?.navigationBar.standardAppearance = appearance
-                    navigationController?.navigationBar.scrollEdgeAppearance = appearance
-                }
-               
-            } else {
-                navigationController?.navigationBar.barTintColor = navigationBarColor
-            }
+            setDefaultNav()
         }
        
         
-        if isHideNavVisualEffectView {
-            self.navigationController?.navigationBar.hideVisualEffectView(isHide: true, navBarColor: navigationBarColor)
+        if isHideNavVisualEffectView && !isNeedCheckCurrentVCHideNavigationBar{
+//            self.navigationController?.navigationBar.hideVisualEffectView(isHide: true, navBarColor: navigationBarColor)
+           setClearNav()
         }
        
 
-        if isHideNavigationBar  {
+        if (isHideNavigationBar && !isNeedCheckCurrentVCHideNavigationBar) || (isNeedCheckCurrentVCHideNavigationBar && UIViewController.getCurrentViewController() == self) {
             navigationController?.setNavigationBarHidden(true, animated: animated)
-        }
+        } 
       
         if #available(iOS 11.0, *) {
 //            navigationItem.largeTitleDisplayMode = .never
@@ -159,47 +200,167 @@ open class ViewController: UIViewController,Navigatale {
     
     open override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        if self.navigationController?.navigationBar.isHideVisualEffectView == true {
-            self.navigationController?.navigationBar.hideVisualEffectView(isHide: false, navBarColor: navigationBarColor)
-            
-            if isHideNavVisualEffectView {
-                self.navigationController?.navigationBar.hideVisualEffectView(isHide: true, navBarColor: navigationBarColor)
-            }
-           
-
-            if isHideNavigationBar  {
-                navigationController?.setNavigationBarHidden(true, animated: animated)
-            }
-        }
+        
+//        if !isHideNavVisualEffectView && !isHideNavigationBar, isTranslucent {
+//            if #available(iOS 15.0, *) {
+//                if var appearance = navigationController?.navigationBar.standardAppearance {
+//                    appearance.backgroundEffect = UIBlurEffect(style: .light)
+//                    appearance.backgroundColor = navigationBarColor?.withAlphaComponent(0.8)
+//                    appearance.backgroundImage = nil
+//                    navigationController?.navigationBar.standardAppearance = appearance
+//                    navigationController?.navigationBar.scrollEdgeAppearance = appearance
+//                }
+//
+//            } else {
+//                navigationController?.navigationBar.isTranslucent = true
+//            }
+//        }
+       
+        
+//        if self.navigationController?.navigationBar.isHideVisualEffectView == true {
+//            if !isNeedCheckCurrentVCHideNavigationBar {
+//                self.navigationController?.navigationBar.hideVisualEffectView(isHide: false, navBarColor: navigationBarColor)
+//            }
+//
+//            if isHideNavVisualEffectView && !isNeedCheckCurrentVCHideNavigationBar {
+//                self.navigationController?.navigationBar.hideVisualEffectView(isHide: true, navBarColor: navigationBarColor)
+//            }
+//
+//            if (isHideNavigationBar && !isNeedCheckCurrentVCHideNavigationBar) || (isNeedCheckCurrentVCHideNavigationBar && UIViewController.getCurrentViewController() == self)  {
+//                navigationController?.setNavigationBarHidden(true, animated: animated)
+//            }
+//        }
+        
         
     }
     
     open override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        
+//        if !isHideNavVisualEffectView && !isHideNavigationBar, isTranslucent {
+//            if #available(iOS 15.0, *) {
+//                if var appearance = navigationController?.navigationBar.standardAppearance {
+//                    appearance.configureWithTransparentBackground()
+//                    appearance.backgroundColor = navigationBarColor
+//                    appearance.backgroundImage = UIImage(color: navigationBarColor ?? .white, size: CGSize(width: App.width, height: self.navigationBarAndStatusBarHeight))
+//                    navigationController?.navigationBar.standardAppearance = appearance
+//                    navigationController?.navigationBar.scrollEdgeAppearance = appearance
+//                }
+//
+//            } else {
+//                navigationController?.navigationBar.isTranslucent = false
+//            }
+//        }
+        /// push下个界面，判断是否需要显示tabbar
+        if isAutoShowAndHideTabbarNotUseSystem == true {
+            if self.navigationController?.viewControllers.count == 1 {
+                self.tabBarController?.showTabbar(animated: true)
+            } else {
+                if self.navigationController?.viewControllers.last?.hideTabbarWhenPushUseSystem != true {
+                    self.tabBarController?.showTabbar(animated: true)
+                } else {
+                    self.tabBarController?.hideTabbar(animated: false)
+                }
+            }
+        }
         let previousVC = self.navigationController?.viewControllers.last as? ViewController
-        if isHideNavigationBar && self.presentedViewController == nil && previousVC?.isHideNavigationBar != true {
+        if isHideNavigationBar && !isNeedCheckCurrentVCHideNavigationBar && isViewDisappearSetNavigatorBar && self.presentedViewController == nil && previousVC?.isHideNavigationBar != true {
             navigationController?.setNavigationBarHidden(false, animated: animated)
         }
-        self.navigationController?.navigationBar
-        if isHideNavVisualEffectView && self.presentedViewController == nil && previousVC?.isHideNavigationBar != true  && self.navigationController?.isPush == true {
-            self.navigationController?.navigationBar.hideVisualEffectView(isHide: false, navBarColor: navigationBarColor)
-        }
-    }
-    
+//        if isHideNavVisualEffectView && !isNeedCheckCurrentVCHideNavigationBar && isViewDisappearSetNavigatorBar && self.presentedViewController == nil && previousVC?.isHideNavigationBar != true  && self.navigationController?.isPush == true {
+//            self.navigationController?.navigationBar.hideVisualEffectView(isHide: false, navBarColor: navigationBarColor)
+//        }
+        
 
-    
+    }
+        
     open override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         self.navigationController?.view.endEditing(true)
         self.view.endEditing(true)
     }
     
-   open func backAction() {
+    public func setDefaultNav() {
+        if var appearance = navigationController?.navigationBar.standardAppearance.copy() {
+            if let navTitleFont = navTitleFont {
+                appearance.titleTextAttributes = [.font : navTitleFont]
+            }
+            
+            if let navTitleColor = navTitleColor {
+                appearance.titleTextAttributes = [.backgroundColor : navTitleColor]
+            }
+            
+            if isTranslucent == true {
+                appearance.backgroundEffect = UIBlurEffect(style: .light)
+                appearance.backgroundColor = navigationBarColor?.withAlphaComponent(0.8)
+                
+            } else {
+                appearance.configureWithOpaqueBackground()
+                appearance.backgroundColor = navigationBarColor
+            }
+            if isShowNavBarBottomLine {
+                appearance.shadowColor = .clear
+                appearance.shadowImage = nil
+            }
+            navigationItem.standardAppearance = appearance
+            navigationItem.scrollEdgeAppearance = appearance
+        }
+    }
+    
+    public func setClearNav() {
+        if var appearance = navigationController?.navigationBar.standardAppearance.copy() {
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = .clear
+            if isShowNavBarBottomLine {
+                appearance.shadowColor = .clear
+                appearance.shadowImage = nil
+            }
+            navigationItem.standardAppearance = appearance
+            navigationItem.scrollEdgeAppearance = appearance
+        }
+    }
+    
+    open func backAction() {
+       closeVC()
+    }
+    
+    open func closeVC() {
         if self.presentingViewController != nil && self.navigationController?.viewControllers.count == 1 {
             isDimiss = true
-            self.navigator?.dimiss(sender: self)
+            if let navigator = self.navigator {
+                navigator.dimiss(sender: self)
+            } else {
+                self.dismiss(animated: true, completion: nil)
+            }
         } else {
-            self.navigator?.pop(sender: self)
+            if let navigator = self.navigator {
+                navigator.pop(sender: self)
+            } else {
+                self.navigationController?.popViewController()
+            }
+        }
+    }
+    
+    func refreshBackButton() {
+        if let image = backImage?.withRenderingMode(.alwaysOriginal) {
+            backButton.setImage(image, for: .normal)
+            backButton.contentSize = CGSize(width: 30.wScale, height: self.navigationBarHeight)
+            backButton.translatesAutoresizingMaskIntoConstraints = false
+            let leftMargin = (backButton.contentSize.width - image.size.width) / 2
+            backButton.overrideAlignmentRectInsets = UIEdgeInsets(top: 0, left: leftMargin + 4.wScale, bottom: 0, right: 0)
+            
+            if image != nil {
+                backButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -leftMargin, bottom: 0, right: 0)
+            }
+            let backButtonItem = UIBarButtonItem(customView: backButton)
+            let negativeSeperator = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+            negativeSeperator.width = 8.wScale
+            if otherleftBarButtonItems.count > 0 {
+                self.navigationItem.leftBarButtonItems = [negativeSeperator, backButtonItem] + otherleftBarButtonItems
+            } else {
+                self.navigationItem.leftBarButtonItems = [negativeSeperator, backButtonItem]
+            }
+          
         }
     }
    
@@ -226,23 +387,27 @@ open class ViewController: UIViewController,Navigatale {
         viewModel.msgToast.asObservable().observe(on: MainScheduler.instance).subscribe(onNext: {
             [weak self] (msg) in
              guard let self = self else {return}
-            self.toastOnView?.showTextHUD(msg)
+            self.textToastOnView?.showTextHUD(msg, tag: kOnlyShowOneHudTag)
              
          }).disposed(by: disposeBag)
         
         viewModel.showHud.observe(on: MainScheduler.instance).asObservable().subscribe(onNext: {
             [weak self] (msg) in
              guard let self = self else {return}
-            self.toastOnView?.showTextHUD(msg)
+            self.textToastOnView?.showTextHUD(msg, tag: kOnlyShowOneHudTag)
 
          }).disposed(by: disposeBag)
-
+        viewModel.haveContents.subscribe(onNext: {
+            [weak self] hasContents in guard let self = self else { return }
+            self.isHasContent = hasContents
+        }).disposed(by: disposeBag)
         viewModel.error.asObservable().observe(on: MainScheduler.instance).bind(to: error).disposed(by: disposeBag)
+        
         viewModel.error.asObservable().observe(on: MainScheduler.instance).subscribe(onNext: {
            [weak self] (error) in
             guard let self = self else {return}
             if let error = error as? ServiceError {
-                self.toastOnView?.showTextHUD(error.errorMsg)
+                self.textToastOnView?.showTextHUD(error.errorMsg, tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
 //                if error.code == .tokenInvalid || error.code == .loginExpired || error.code == .needLogin  {
 ////                    self.navigator?.show(interface: .login(viewModel: HKLoginInVM(provider: viewModel.provider)), sender: self)
 //                }
@@ -252,36 +417,46 @@ open class ViewController: UIViewController,Navigatale {
                 if error.errorCode == 6 &&
                     self.defaultFirstTableView == nil &&
                     self.tableView() == nil &&
-                    self.isAutoShowNoNetWrokEmptyView  {
-                    self.toastOnView?.hideEmptyView()
-                    let emptyView = self.toastOnView?.showNetworkErrorEmptyView(){
+                    self.isAutoShowNoNetWrokEmptyView &&
+                    !self.isHasContent {
+                    self.emptyOnView?.hideEmptyView()
+                    let emptyView = self.emptyOnView?.showNetworkErrorEmptyView(){
                         self.notNetworkRetryTrigger.onNext(())
                     }
-                    emptyView?.centerOffset = App.emptyCenterOffset
+                    emptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
                 }
                 
                 if error.errorCode == 6 {
-                    self.toastOnView?.showTextHUD(localized(name: "noInternetAccess"))
+                    self.textToastOnView?.showTextHUD(localized(name: "noInternetAccess"), tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
                 } else {
-                    self.toastOnView?.showTextHUD(localized(name: "network_error_common_msg"))
+                    self.textToastOnView?.showTextHUD(localized(name: "network_error_common_msg"), tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
                 }
             }
             else {
                 let error = error as NSError
                 let message = error.userInfo[NSLocalizedDescriptionKey] as? String
-                self.toastOnView?.showTextHUD(message)
+                self.textToastOnView?.showTextHUD(message, tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
             }
            
         }).disposed(by: disposeBag)
         
-        viewModel.noData.observe(on: MainScheduler.instance).subscribe(onNext: {
+        Observable.merge(viewModel.emptyNoDataError.asObservable().map({($0, true)}), viewModel.noData.map({($0, false)})).observe(on: MainScheduler.instance).subscribe(onNext: {
             [weak self]
-            noData
+            (noData, isError)
             in
             guard let self = self else {return}
-            if self.tableView() == nil && self.defaultFirstTableView == nil {
-                self.toastOnView?.hideNetworkErrorEmptyView()
-                if let noData = noData  {
+            if self.tableView() == nil && self.defaultFirstTableView == nil && !self.isHasContent {
+                
+                if let error = noData?.error as? MoyaError, error.errorCode == 6, noData != nil  {
+                    return
+                }
+                
+                self.emptyOnView?.hideNetworkErrorEmptyView()
+                if let noData = noData {
+                    if !isError {
+                        viewModel.haveContents.accept(false)
+                    }
+                    self.emptyOnView?.hideEmptyView()
                     let emptyView = self.toastOnView?.showEmptyView(image: noData.image,
                                                     title: noData.title,
                                                     titleFont: noData.titleFont,
@@ -292,26 +467,43 @@ open class ViewController: UIViewController,Navigatale {
                                                     buttonCustomView: noData.customButtonView) {
                         [weak self] in
                         guard let self = self else {return}
-                        self.emptyTrigger.onNext(())
+                        if isError {
+                            self.emptyErrorTrigger.onNext(())
+                        } else {
+                            self.emptyTrigger.onNext(())
+                        }
                     }
-                    emptyView?.centerOffset = App.emptyCenterOffset
-                }else {
-                    self.toastOnView?.hideEmptyView()
+                    emptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
+                } else {
+                    self.emptyOnView?.hideEmptyView()
+                    if !isError {
+                        viewModel.haveContents.accept(true)
+                    }
                 }
             }
             
         }).disposed(by: disposeBag)
         
-        
+        viewModel.changeCustomLoadingText.subscribe(with: self, onNext: {
+            (self, text) in
+            self.currentCustomToastView?.customView.text = text
+        }).disposed(by: disposeBag)
         
     }
     
     
     func tableView() -> UIScrollView? {
-        return self.view.subviews.first(where: {$0 is UITableView}) as? UITableView
+        if let tableView = self.view.subviews.first(where: {$0 is UITableView}) as? UITableView {
+            return tableView
+        }
+        if let collectView = self.view.subviews.first(where: {$0 is UICollectionView}) as? UICollectionView {
+            return collectView
+        }
+        return nil
     }
     
-  
+   
+    
     deinit {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
     }
@@ -322,9 +514,9 @@ public extension Reactive where Base: ViewController {
     var cannotClickLoading: Binder<Bool> {
         return Binder(self.base) { viewController, attr in
             if attr {
-                UIApplication.shared.keyWindow?.showLoadingTextHUD(maskType: .clear)
+                (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear)
             }else{
-                UIApplication.shared.keyWindow?.hideHUD()
+                (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.hideHUD()
             }
         }
     }
@@ -338,12 +530,25 @@ public extension Reactive where Base: ViewController {
             }
         }
     }
-    var customLoading: Binder<Bool> {
+    var customLoading: Binder<(Bool, String?, Bool)> {
         return Binder(self.base) { viewController, attr in
-            if attr {
-//                viewController.toastOnView?.showCustomLoadingView()
-            }else{
-//                viewController.toastOnView?.hideCustomLoadingView()
+            let isShow = attr.0
+            let message = attr.1
+            let isCanNotTouch = attr.2
+            if isShow {
+                if isCanNotTouch {
+                    viewController.currentCustomToastView = (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear, message)
+                } else {
+                    viewController.currentCustomToastView = viewController.toastOnView?.showLoadingTextHUD(message)
+                }
+                
+            } else{
+                
+                if isCanNotTouch {
+                    (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.hideHUD()
+                } else {
+                    viewController.toastOnView?.hideHUD()
+                }
             }
         }
     }

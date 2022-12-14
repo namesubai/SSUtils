@@ -17,12 +17,8 @@ public enum RxMediaPickerError: Error {
 }
 
 @objc public protocol RxMediaPickerDelegate {
-    func present(picker: UIImagePickerController)
-    func dismiss(picker: UIImagePickerController)
-    @available(iOS 14, *)
-    func ph_present(picker: PHPickerViewController)
-    @available(iOS 14, *)
-    func ph_dismiss(picker: PHPickerViewController)
+    func present(picker: UIViewController)
+    func dismiss(picker: UIViewController)
 }
 
 @objc open class RxMediaPicker: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate, PHPickerViewControllerDelegate {
@@ -59,7 +55,7 @@ public enum RxMediaPickerError: Error {
             self.present(picker)
 
             return Disposables.create()
-        }
+        }.observe(on: MainScheduler.instance)
     }
 
     open func selectVideo(source: UIImagePickerController.SourceType = .photoLibrary,
@@ -78,7 +74,7 @@ public enum RxMediaPickerError: Error {
 
 
             return Disposables.create()
-        }
+        }.observe(on: MainScheduler.instance)
     }
 
     open func takePhoto(device: UIImagePickerController.CameraDevice = .rear,
@@ -103,7 +99,7 @@ public enum RxMediaPickerError: Error {
             self.present(picker)
 
             return Disposables.create()
-        }
+        }.observe(on: MainScheduler.instance)
     }
 
     open func selectImage(source: UIImagePickerController.SourceType = .photoLibrary,
@@ -118,7 +114,7 @@ public enum RxMediaPickerError: Error {
                 config.preferredAssetRepresentationMode = .current
                 let picker = PHPickerViewController(configuration: config)
                 picker.delegate = self
-                self.ph_present(picker)
+                self.present(picker)
 
             } else {
                 let picker = UIImagePickerController()
@@ -130,7 +126,7 @@ public enum RxMediaPickerError: Error {
 
 
             return Disposables.create()
-        }
+        }.observe(on: MainScheduler.instance)
     }
 
     func processPhoto(info: [UIImagePickerController.InfoKey: Any],
@@ -192,7 +188,7 @@ public enum RxMediaPickerError: Error {
                         
                         if #available(iOS 14, *) {
                             if let picker = picker as? PHPickerViewController  {
-                                self.ph_dismiss(picker)
+                                self.dismiss(picker)
                             }
                         }
                     default: break
@@ -207,7 +203,7 @@ public enum RxMediaPickerError: Error {
             
             if #available(iOS 14, *) {
                 if let picker = picker as? PHPickerViewController  {
-                    ph_dismiss(picker)
+                    dismiss(picker)
                 }
             }
         }
@@ -235,36 +231,23 @@ public enum RxMediaPickerError: Error {
         
         if #available(iOS 14, *) {
             if let picker = picker as? PHPickerViewController  {
-                self.ph_dismiss(picker)
+                self.dismiss(picker)
             }
         }
     }
 
-    fileprivate func present(_ picker: UIImagePickerController) {
+    fileprivate func present(_ picker: UIViewController) {
         DispatchQueue.main.async { [weak self] in
             self?.delegate?.present(picker: picker)
         }
     }
 
-    fileprivate func dismiss(_ picker: UIImagePickerController) {
+    fileprivate func dismiss(_ picker: UIViewController) {
         DispatchQueue.main.async { [weak self] in
             self?.delegate?.dismiss(picker: picker)
         }
     }
     
-    @available(iOS 14, *)
-    fileprivate func  ph_present(_ picker: PHPickerViewController) {
-        DispatchQueue.main.async { [weak self] in
-            self?.delegate?.ph_present(picker: picker)
-        }
-    }
-
-    @available(iOS 14, *)
-    fileprivate func  ph_dismiss(_ picker: PHPickerViewController) {
-        DispatchQueue.main.async { [weak self] in
-            self?.delegate?.ph_dismiss(picker: picker)
-        }
-    }
 
     // MARK: UIImagePickerControllerDelegate
 
@@ -294,7 +277,7 @@ public enum RxMediaPickerError: Error {
     @available(iOS 14, *)
     public func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         guard !results.isEmpty else {
-            self.ph_dismiss(picker)
+            self.dismiss(picker)
             return
             
         }
@@ -333,7 +316,7 @@ public enum RxMediaPickerError: Error {
                             }
                         }
                     }
-                    self.ph_dismiss(picker)
+                    self.dismiss(picker)
                 }
             }
         }

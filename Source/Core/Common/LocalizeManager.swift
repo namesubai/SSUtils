@@ -40,6 +40,7 @@ public enum LangType: String {
     case ptBR = "pt_BR"
     case id = "id"
     case ru = "ru"
+    case cn = "zh-Hans"
 }
 
 public struct LocalizeConfig {

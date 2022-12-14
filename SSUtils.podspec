@@ -4,7 +4,7 @@ Pod::Spec.new do |s|
   s.name         = "SSUtils"
   s.version      = "0.0.1"
   s.summary      = "swift develop utils"
-  s.ios.deployment_target = '10.0'
+  s.ios.deployment_target = '13.0'
   s.swift_versions = "5.0"
   s.homepage     = "https://github.com/namesubai/SSUtils.git"
   s.author             = { "subai" => "804663401@qq.com" }
@@ -17,11 +17,11 @@ Pod::Spec.new do |s|
     ss.resources = 'Source/Core/Resources/*.xcassets', 'Source/Core/Resources/**/*/*.strings'
     ss.dependency "Moya-ObjectMapper"
     ss.dependency "SnapKit"
-    ss.dependency "SSAlertSwift"
-    ss.dependency "SSPage-Swift"
+    ss.dependency "SSAlertSwift", '0.0.15'
+#    ss.dependency "SSPage-Swift", '1.0.17'
     ss.dependency "RxCocoa"
     ss.dependency "RxSwift"
-    ss.dependency "Kingfisher"
+    ss.dependency "Kingfisher", '7.4.0'
     ss.dependency "SwiftyJSON"
     ss.dependency "MJRefresh"
     ss.dependency "NSObject+Rx"
@@ -34,7 +34,6 @@ Pod::Spec.new do |s|
     ss.dependency "KeychainAccess"  # https://github.com/kishikawakatsumi/KeychainAccess
     ss.dependency "RxSwiftExt"
     ss.dependency "CryptoSwift"
-    ss.framework  = "Foundation"
 
   end
   

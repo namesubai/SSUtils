@@ -25,7 +25,7 @@ public extension UIViewController {
     }
     
     var statusBarHeight: CGFloat {
-        App.statusBarHeight
+        return App.statusBarHeight
     }
     
     var navigationBarAndStatusBarHeight: CGFloat {

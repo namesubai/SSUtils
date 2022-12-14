@@ -14,10 +14,26 @@ open class View: UIView {
     public var viewModel: ViewModel?
 
     public var disposeBag = DisposeBag()
+    public let emptyTrigger = PublishSubject<Void>()
+    public let emptyErrorTrigger = PublishSubject<Void>()
+    public let notNetworkRetryTrigger = PublishSubject<Void>()
+    
     public override init(frame: CGRect) {
         super.init(frame: frame)
         make()
     }
+    var _toastSuperView: UIView?
+    public var toastSuperView: UIView? {
+        get {
+            _toastSuperView ?? self
+        }
+        set {
+            _toastSuperView = newValue
+        }
+    }
+    
+    
+    public var isAutoShowNotNetworkEmptyView = false
     
     public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -30,6 +46,18 @@ open class View: UIView {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
     }
     
+    public var notNetworkAndEmptyTrigger: Observable<Void> {
+        Observable.merge(emptyTrigger, notNetworkRetryTrigger, emptyErrorTrigger)
+    }
+    
+    public var voidAndNotNetworkAndEmptyTrigger:Observable<Void> {
+        Observable.merge(Observable.just(()) ,emptyTrigger, notNetworkRetryTrigger, emptyErrorTrigger)
+    }
+    
+    public var voidAndNotNetworkAndOnlyErrorEmptyTrigger:Observable<Void> {
+        Observable.merge(Observable.just(()), notNetworkRetryTrigger, emptyErrorTrigger)
+    }
+    
     open func bindViewModel(viewModel: ViewModel) {
         self.viewModel = viewModel
         viewModel.loading.asObservable().bind(to: rx.loading).disposed(by: disposeBag)
@@ -38,7 +66,7 @@ open class View: UIView {
         viewModel.msgToast.asObservable().subscribe(onNext: {
             [weak self] (msg) in
              guard let self = self else {return}
-            self.showTextHUD(msg)
+            self.toastSuperView?.showTextHUD(msg)
              
          }).disposed(by: disposeBag)
         
@@ -46,16 +74,63 @@ open class View: UIView {
             [weak self] (error) in
              guard let self = self else {return}
              if let error = error as? ServiceError {
-                 self.showTextHUD(error.errorMsg)
+                 self.toastSuperView?.showTextHUD(error.errorMsg)
                 
              } else if let error = error as? Moya.MoyaError {
-                 self.showTextHUD(error.errorDescription)
+                 if self.isAutoShowNotNetworkEmptyView {
+                     if error.errorCode == 6   {
+                         self.toastSuperView?.hideEmptyView()
+                         let emptyView = self.toastSuperView?.showNetworkErrorEmptyView() {
+                             self.notNetworkRetryTrigger.onNext(())
+                         }
+                     }
+                 }
+                 
+                 if error.errorCode == 6 {
+                     self.toastSuperView?.showTextHUD(localized(name: "noInternetAccess"), tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
+                 } else {
+                     self.toastSuperView?.showTextHUD(localized(name: "network_error_common_msg"), tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
+                 }
              }
              else {
                  let error = error as NSError
                  let message = error.userInfo[NSLocalizedDescriptionKey] as? String
-                 self.showTextHUD(message)
+                 self.toastSuperView?.showTextHUD(message)
              }
+        }).disposed(by: disposeBag)
+        
+        Observable.merge(viewModel.emptyNoDataError.asObservable().map({($0, true)}), viewModel.noData.map({($0, false)})).observe(on: MainScheduler.instance).subscribe(onNext: {
+            [weak self]
+            (noData, isError)
+            in
+            guard let self = self else {return}
+            if self.isAutoShowNotNetworkEmptyView {
+                self.toastSuperView?.hideNetworkErrorEmptyView()
+
+            }
+            if let noData = noData {
+                self.toastSuperView?.hideEmptyView()
+                let emptyView = self.toastSuperView?.showEmptyView(image: noData.image,
+                                                                title: noData.title,
+                                                                titleFont: noData.titleFont,
+                                                                titleColor: noData.titleColor,
+                                                                buttonTitle: noData.buttonTitle,
+                                                                buttonTitleFont: noData.buttonTitleFont,
+                                                                buttonTitleColor: noData.buttonTitleColor,
+                                                                buttonCustomView: noData.customButtonView) {
+                    [weak self] in
+                    guard let self = self else {return}
+                    if isError {
+                        self.emptyErrorTrigger.onNext(())
+                    } else {
+                        self.emptyTrigger.onNext(())
+                    }
+                }
+//                emptyView?.centerOffset = App.emptyCenterOffset
+            } else {
+                self.toastSuperView?.hideEmptyView()
+            }
+            
         }).disposed(by: disposeBag)
         
         viewModel.showCustomLoading.asObservable().subscribe(onNext: {
@@ -65,10 +140,8 @@ open class View: UIView {
          }).disposed(by: disposeBag)
     }
     
-    open func bind(_ cellViewModel: CellViewModel) {
-        
-    }
-  
+    
+    
     /*
     // Only override draw() if you perform custom drawing.
     // An empty implementation adversely affects performance during animation.
@@ -84,9 +157,9 @@ public extension Reactive where Base: View {
     var clearLoading: Binder<Bool> {
         return Binder(self.base) { view, attr in
             if attr {
-                UIApplication.shared.keyWindow?.showLoadingTextHUD(maskType: .clear)
+                (view._toastSuperView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear)
             }else{
-                UIApplication.shared.keyWindow?.hideHUD()
+                (view._toastSuperView ?? UIApplication.shared.keyWindow)?.hideHUD()
             }
         }
     }
@@ -94,32 +167,45 @@ public extension Reactive where Base: View {
     var loading: Binder<Bool> {
         return Binder(self.base) { view, attr in
             if attr {
-                view.showLoadingTextHUD()
+                view.toastSuperView?.showLoadingTextHUD()
             }else{
-                view.hideHUD()
+                view.toastSuperView?.hideHUD()
             }
         }
     }
-    var customLoading: Binder<Bool> {
+    var customLoading: Binder<(Bool, String?, Bool)> {
         return Binder(self.base) { view, attr in
-            if attr {
-//                view.showCustomLoadingView()
-            }else{
-//                view.hideCustomLoadingView()
+            let isShow = attr.0
+            let message = attr.1
+            let isCanNotTouch = attr.2
+            if isShow {
+                if isCanNotTouch {
+                    (view._toastSuperView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear, message)
+                } else {
+                    view.toastSuperView?.showLoadingTextHUD(message)
+                }
+                
+            } else{
+                
+                if isCanNotTouch {
+                    (view._toastSuperView ?? UIApplication.shared.keyWindow)?.hideHUD()
+                } else {
+                    view.toastSuperView?.hideHUD()
+                }
             }
         }
     }
 }
 
 
-open class  TopRoundedCornerView: View {
+open class TopRoundedCornerView: View {
     private var roundedLayer: CAShapeLayer!
     private var roundedPath: UIBezierPath!
-    public var topConerRadious: CGFloat = 25.wScale
+    public var topConerRadious: CGFloat = 15.wScale
     
-    private lazy var topIndicatorView: UIView = {
+    public private(set) lazy var topIndicatorView: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor.hex(0xF0F0F0)
+        view.backgroundColor = UIColor.hex(0xCCCCCC)
         view.layer.cornerRadius = 4.5.wScale / 2
         return view
     }()
@@ -140,8 +226,8 @@ open class  TopRoundedCornerView: View {
         addSubview(topIndicatorView)
         topIndicatorView.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
-            make.top.equalTo(13.wScale)
-            make.size.equalTo(CGSize(width: 40, height: 4.5).wScale)
+            make.top.equalTo(11.wScale)
+            make.size.equalTo(CGSize(width: 35, height: 4.5).wScale)
         }
         isHideTopLine = true
     }
@@ -152,6 +238,8 @@ open class  TopRoundedCornerView: View {
         roundedLayer.path = roundedPath.cgPath
         layer.mask = roundedLayer
     }
+    
+  
 }
 
 

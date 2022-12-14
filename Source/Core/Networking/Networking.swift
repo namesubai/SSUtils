@@ -15,6 +15,21 @@ import Moya_ObjectMapper
 import SwiftyJSON
 import YYCache
 
+//extension ObjectMapper.Mapper {
+//    public func mapOnlyArray(JSONString: String) -> [N]? {
+//        let parsedJSON: Any? = Mapper.parseJSONString(JSONString: JSONString)
+//
+//        if let objectArray = mapArray(JSONObject: parsedJSON) {
+//            return objectArray
+//        }
+//
+//        return nil
+//    }
+//}
+
+
+
+
 public protocol MapResult {
     associatedtype Object
     var object:Object { get }
@@ -172,6 +187,11 @@ public extension ObservableType where Element: CacheResult {
             }
      }.map({$0.dataType.result}).observe(on: MainScheduler.instance)
     }
+    
+    func all() -> Observable<Element.T> {
+        
+        return map({$0.dataType.result}).observe(on: MainScheduler.instance)
+    }
 }
 
  class __NetWorkingProvider<Target>: NSObject where Target: NetworkTargetType {
@@ -196,18 +216,20 @@ public extension ObservableType where Element: CacheResult {
                     print("头部信息:",target.headers ?? [String: String]())
                     switch target.task {
                     case .requestParameters(let params, _):
-                        print("参数:",params)
-                    case .uploadCompositeMultipart(let number, let params):
-                        print("\(number)个文件", "参数:",params)
+                        print("参数:", params)
+                    case .uploadCompositeMultipart(let formDatas, let params):
+                        print("\(formDatas.count)个文件", "参数:",params)
+                    case .uploadMultipart(let formDatas):
+                        print("上传表单:", formDatas)
                     default:
                         break
                     }
-                    if let result = try? response.mapJSON() {
-                        print("网络数据：\(String(describing: result))")
-                    }else
-                    if let result = try? response.mapString() {
-                        print("网络数据：\(String(describing: result))")
-                    }
+//                    if let result = try? response.mapJSON() {
+//                        logDebug("网络数据：\(String(describing: result))")
+//                    }else
+//                    if let result = try? response.mapString() {
+//                        logDebug("网络数据：\(String(describing: result))")
+//                    }
                     #endif
                     if let data = try? response.mapObject(resultType) {
                         if data.isSuccess {
@@ -230,16 +252,22 @@ public extension ObservableType where Element: CacheResult {
                 dispose.dispose()
             }
         }.retry(when: {
-            error in
+            error -> Observable<Void> in
             
-           return error.flatMapLatest({
-                error -> Observable<Void>  in
-                if error == nil {
+            return error.flatMapLatest({
+                err -> Observable<Void>  in
+                if err == nil {
                     return Observable.just(())
                 } else {
-                  return  target.getAccessToken(error: error)
+                    if target.needGetAccessToken {
+                        return  target.getAccessToken(error: err)
+
+                    } else {
+                        return Observable.error(err)
+                    }
                 }
             })
+            
         }).asObservable().share()  ///加share，为了避免多个订阅，调用多次请求
 
     }
@@ -283,13 +311,9 @@ public extension NetworkTargetType {
 //    }
 }
 
-public protocol NetworkAPI {
-    
-}
+public protocol NetworkApi {}
 
-extension NetworkingProvider: NetworkAPI {
-    
-}
+extension ApiProvider: NetworkApi {}
 
 protocol NetworkType {
     associatedtype T: NetworkTargetType
@@ -297,7 +321,7 @@ protocol NetworkType {
     func request<Result>(_ target: T, result: Result.Type) -> Observable<Result> where Result: RootResult
 }
 
-open class NetworkingProvider<NetworkTarget>: NetworkType where NetworkTarget: NetworkTargetType {
+open class ApiProvider<NetworkTarget>: NetworkType where NetworkTarget: NetworkTargetType {
     
     let disposeBag = DisposeBag()
     private lazy var cache: YYCache? = {
@@ -322,7 +346,7 @@ open class NetworkingProvider<NetworkTarget>: NetworkType where NetworkTarget: N
     }
 }
  
-public extension NetworkingProvider {
+public extension ApiProvider {
 
 //    func requestDataObject<T: Mappable, Result: RootResult>(_ target: Target, type: T.Type, result: Result.Type) -> Single<ObjectResult<T>>
 //    {
@@ -424,10 +448,12 @@ public extension NetworkingProvider {
                     (mapArray) in
                     let object = CacheObjectArray<T>(dataType: CachDataType.network(result: mapArray))
                     network.onNext(object)
-                    guard let cache = self.cache, let jsonString = mapArray.toJSONString(), let path = target.cachePath else { return }
-                    cache.setObject(jsonString as NSString, forKey: path) {
-                        logDebug("\(path):缓存成功")
+                    if let cache = self.cache, let jsonString = mapArray.toJSONString(), let path = target.cachePath, !mapArray.isEmpty  {
+                        cache.setObject(jsonString as NSString, forKey: path) {
+                            logDebug("\(path):缓存成功")
+                        }
                     }
+                   
                     network.onCompleted()
                     dispose?.dispose()
                 }, onError: {
@@ -442,7 +468,7 @@ public extension NetworkingProvider {
                 cache.containsObject(forKey: path) { (key, isContain) in
                     if isContain {
                         cache.object(forKey: path) { (key, jsonString) in
-                            if let mapArray = Array<T>(JSONString: jsonString as! NSString as String)  {
+                            if let mapArray = Array<T>(JSONString: jsonString as! NSString as String), !mapArray.isEmpty  {
                                 let object = CacheObjectArray<T>(dataType: CachDataType.cache(result: mapArray))
                                 network.onNext(object)
                                 networkRequest()

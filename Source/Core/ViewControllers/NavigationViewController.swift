@@ -8,6 +8,7 @@
 import UIKit
 import RxSwift
 import RxCocoa
+import NSObject_Rx
 
 private var isHideVisualEffectViewKey: Int8 = 0
 public extension UINavigationBar {
@@ -27,7 +28,9 @@ public extension UINavigationBar {
         findBackGroudView(onView: self, name: "_UIBarBackground")?.alpha = alpha
 
     }
-    
+    func setBackGroundView(color: UIColor?) {
+        findBackGroudView(onView: self, name: "_UIBarBackground")?.backgroundColor = color
+    }
     public var isHideVisualEffectView: Bool {
         set {
             objc_setAssociatedObject(self, &isHideVisualEffectViewKey, newValue, .OBJC_ASSOCIATION_ASSIGN)
@@ -151,10 +154,65 @@ public extension UIView {
     
 }
 
+fileprivate enum TransilateType {
+    case push(vc: UIViewController, animated: Bool)
+    case pop(vc: UIViewController?, animated: Bool)
+    case set(vcs: [UIViewController] , animated: Bool)
+    
+    var vc: UIViewController? {
+        switch self {
+        case .push(let vc, _):
+            return  vc
+        case .pop(let vc, _):
+            return  vc
+        case .set(let vcs, _):
+            return  vcs.last
+        }
+    }
+}
+
+fileprivate class TransilateData: NSObject {
+    var transilateType: TransilateType
+    init(transilateType: TransilateType) {
+        self.transilateType = transilateType
+        super.init()
+    }
+}
+
 
 open class NavigationViewController: UINavigationController{
     
- 
+    /// 用来处理多次push或者pop奔溃问题， bug: Can't Add Self as Subview
+//    var shouldIgnorePushingViewControllers: Bool = false
+    fileprivate var transilateDatas = [TransilateData]()
+    
+    fileprivate func beginTransilate(trasilateData: TransilateData) {
+        transilateDatas.append(trasilateData)
+        if transilateDatas.count == 1 {
+            transilate(data: trasilateData)
+        }
+    }
+    
+    fileprivate func transilate(data: TransilateData) {
+        switch data.transilateType {
+        case .push(let vc, let animated):
+            super.pushViewController(vc, animated: animated)
+        case .set(let vcs, let animated):
+            super.setViewControllers(vcs, animated: animated)
+        case .pop(_, let animated):
+            super.popViewController(animated: animated)
+        }
+        transilateDatas.removeAll(where: {$0 == data})
+    }
+    
+    fileprivate func endTransilate(vc: UIViewController?) {
+        guard let vc = vc else { return }
+        if let index = transilateDatas.firstIndex(where: {$0.transilateType.vc == vc}), index + 1 < transilateDatas.count {
+            let data = transilateDatas[index + 1]
+            transilate(data: data)
+        }
+    }
+    
     open override func viewDidLoad() {
         super.viewDidLoad()
 //        navigationBar.isTranslucent = false
@@ -162,19 +220,12 @@ open class NavigationViewController: UINavigationController{
 //        navigationBar.barTintColor = Colors.backgroud
 //        self.navigationBar.backIndicatorImage = UIImage(named: R.image.left_arrow.name)?.withRenderingMode(.alwaysOriginal)
 //        self.navigationBar.backIndicatorTransitionMaskImage = UIImage(named: R.image.left_arrow.name)?.withRenderingMode(.alwaysOriginal)
+        
         interactivePopGestureRecognizer?.delegate = self
-        if #available(iOS 15.0, *) {
-            navigationBar.rx.methodInvoked(#selector(setter: UINavigationBar.titleTextAttributes)).subscribe(onNext: { [weak self] attr in guard let self = self else { return }
-                let appearance = UINavigationBarAppearance()
-                appearance.configureWithTransparentBackground()
-                appearance.titleTextAttributes = self.navigationBar.titleTextAttributes ?? [NSAttributedString.Key : Any]()
-//                appearance.backgroundColor = Colors.navBarBackgroud
-                appearance.backgroundEffect = UIBlurEffect(style: .light)
-                appearance.backgroundColor = Colors.navBarBackgroud.withAlphaComponent(0.8)
-                self.navigationBar.standardAppearance = appearance
-                self.navigationBar.scrollEdgeAppearance = appearance
-            }).disposed(by: rx.disposeBag)
-        }
+        
+        navigationBar.rx.methodInvoked(#selector(setter: UINavigationBar.titleTextAttributes)).subscribe(onNext: { [weak self] attr in
+            self?.navigationBarAppearanceTitleConfig()
+        }).disposed(by: rx.disposeBag)
         navigationBar.titleTextAttributes = [NSAttributedString.Key.foregroundColor : Colors.headline , NSAttributedString.Key.font : App.navBarTitleFont]
 
         
@@ -187,17 +238,22 @@ open class NavigationViewController: UINavigationController{
 //                self.topViewController?.transitionCoordinator
 //            }
 //        }
-        if #available(iOS 15.0, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithTransparentBackground()
-//            appearance.backgroundColor = Colors.navBarBackgroud
-            appearance.backgroundColor = Colors.navBarBackgroud.withAlphaComponent(0.8)
-            appearance.backgroundEffect = UIBlurEffect(style: .light)
-            appearance.titleTextAttributes = navigationBar.titleTextAttributes ?? [NSAttributedString.Key : Any]()
-            self.navigationBar.standardAppearance = appearance
-            self.navigationBar.scrollEdgeAppearance = appearance
-        }
+        navigationBarAppearanceConfig()
         self.delegate = self
+//        rx.didShow.asObservable().subscribe(onNext: {
+//            [weak self] _ in guard let self = self else { return }
+//            self.shouldIgnorePushingViewControllers = false
+//        }).disposed(by: rx.disposeBag)
+//
+//        rx.willShow.asObservable().subscribe(onNext: {
+//            [weak self] _ in guard let self = self else { return }
+//            if let tc = self.topViewController?.transitionCoordinator {
+//                tc.notifyWhenInteractionEnds { [weak self] _ in guard let self = self else { return }
+//                    self.shouldIgnorePushingViewControllers = false
+//                }
+//            }
+//        }).disposed(by: rx.disposeBag)
+        
 //        var disposeBag = DisposeBag()
 //        self.navigationBar.rx.methodInvoked(#selector(UINavigationBar.layoutSubviews)).subscribe(onNext: {
 //            [weak self] _ in guard let self = self else { return }
@@ -223,38 +279,71 @@ open class NavigationViewController: UINavigationController{
 //        }).disposed(by: rx.disposeBag)
         
         
-        
         // Do any additional setup after loading the view.
     }
     
+    private func navigationBarAppearanceConfig() {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        //            appearance.backgroundColor = Colors.navBarBackgroud
+        appearance.backgroundColor = Colors.navBarBackgroud.withAlphaComponent(0.8)
+        appearance.backgroundEffect = UIBlurEffect(style: .light)
+        appearance.shadowImage = nil
+        appearance.shadowColor = nil
+        self.navigationBar.standardAppearance = appearance
+        self.navigationBar.scrollEdgeAppearance = appearance
+    }
     
+    
+    private func navigationBarAppearanceTitleConfig() {
+        let appearance = navigationBar.standardAppearance
+        appearance.titleTextAttributes = navigationBar.titleTextAttributes ?? [NSAttributedString.Key : Any]()
+        self.navigationBar.standardAppearance = appearance
+        self.navigationBar.scrollEdgeAppearance = appearance
+    }
     
     open override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        navigationBar.hideBottomHairline()
+        
     }
     
     open override func pushViewController(_ viewController: UIViewController, animated: Bool) {
-        if viewControllers.count > 0 && viewController != viewControllers.first {
-            viewController.hidesBottomBarWhenPushed = App.isHideTabBarWhenPush
+//        defer {
+//            shouldIgnorePushingViewControllers = true
+//        }
+//        guard !shouldIgnorePushingViewControllers else { return }
+        if viewControllers.count == 1 && viewController != viewControllers.first {
+            viewController.hidesBottomBarWhenPushed = viewController.hideTabbarWhenPushUseSystem
         }
         self.isPush = true
-        super.pushViewController(viewController, animated: animated)
+        beginTransilate(trasilateData: TransilateData(transilateType: .push(vc: viewController, animated: animated)))
+//        super.pushViewController(viewController, animated: animated)
     }
     
     open override func setViewControllers(_ viewControllers: [UIViewController], animated: Bool) {
+//        defer {
+//            shouldIgnorePushingViewControllers = true
+//        }
+//        guard !shouldIgnorePushingViewControllers else { return }
         if viewControllers.count > 1 {
-            viewControllers.last!.hidesBottomBarWhenPushed = App.isHideTabBarWhenPush
+            viewControllers[1].hidesBottomBarWhenPushed = viewControllers[1].hideTabbarWhenPushUseSystem
         }
         self.isPush = true
-        super.setViewControllers(viewControllers, animated: animated)
+        beginTransilate(trasilateData: TransilateData(transilateType: .set(vcs: viewControllers, animated: animated)))
+//        super.setViewControllers(viewControllers, animated: animated)
     }
     
     
     open override func popViewController(animated: Bool) -> UIViewController? {
+//        defer {
+//            shouldIgnorePushingViewControllers = true
+//        }
+//        guard !shouldIgnorePushingViewControllers else { return nil }
         self.isPop = true
         self.view.endEditing(true)
-        let vc = super.popViewController(animated: animated)
+        let vc = topViewController
+        beginTransilate(trasilateData: TransilateData(transilateType: .pop(vc: vc, animated: animated)))
+//        let vc = super.popViewController(animated: animated)
         return vc
     }
     
@@ -273,18 +362,6 @@ open class NavigationViewController: UINavigationController{
     deinit {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
     }
- 
-   
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }
 
 private var isPushKey: Int8 = 0
@@ -314,8 +391,22 @@ extension UINavigationController {
 
 extension NavigationViewController: UINavigationControllerDelegate, UINavigationBarDelegate {
     
-   
-    
+    public func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
+//        shouldIgnorePushingViewControllers = false
+        
+    }
+
+    public func navigationController(_ navigationController: UINavigationController, willShow viewController: UIViewController, animated: Bool) {
+        if let tc = navigationController.topViewController?.transitionCoordinator {
+//            tc.notifyWhenInteractionEnds { [weak self] _ in guard let self = self else { return }
+////                self.shouldIgnorePushingViewControllers = false
+//                self.endTransilate(vc: navigationController.topViewController)
+//            }
+            tc.animate(alongsideTransition: nil) { [weak self] _ in guard let self = self else { return }
+                self.endTransilate(vc: navigationController.topViewController)
+            }
+        }
+    }
     public func navigationBar(_ navigationBar: UINavigationBar, shouldPush item: UINavigationItem) -> Bool {
         return true
     }
@@ -335,11 +426,14 @@ extension NavigationViewController: UINavigationControllerDelegate, UINavigation
 }
 
 extension NavigationViewController: UIGestureRecognizerDelegate {
+    
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer == interactivePopGestureRecognizer, visibleViewController == viewControllers.first {
+            return false
+        }
         return true
     }
 }
-
 
 public extension UIViewController {
     var isFirstViewController: Bool {
@@ -360,9 +454,27 @@ public extension UIViewController {
         }
     }
 }
+private var hideTabbarWhenPushUseSystemKey: Int8 = 0
+public extension UIViewController {
+    var hideTabbarWhenPushUseSystem: Bool {
+        set {
+            objc_setAssociatedObject(self, &hideTabbarWhenPushUseSystemKey, newValue ? 1 : 0, .OBJC_ASSOCIATION_ASSIGN)
+        }
+        
+        get {
+            if let value = objc_getAssociatedObject(self, &hideTabbarWhenPushUseSystemKey) as? Int {
+                return  value == 1 ? true : false
+            } else {
+                return App.isHideTabBarWhenPush
+            }
+        }
+    }
+}
 
 public extension UIViewController {
     var custonNavigaionViewController: NavigationViewController? {
         return self.navigationController as? NavigationViewController
     }
 }
+
+

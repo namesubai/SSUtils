@@ -29,7 +29,7 @@ open class TableViewCell: UITableViewCell {
         }
     }
     
-    open var lineHeight: CGFloat = 0.5
+    open var lineHeight: CGFloat = App.pixel
     
     open var isCellSelected: Bool = false
     
@@ -71,7 +71,7 @@ open class TableViewCell: UITableViewCell {
     
     open override func layoutSubviews() {
         super.layoutSubviews()
-        lineView.frame = CGRect(x: separatorInset.left, y: self.frame.height - separatorInset.bottom - lineHeight, width: self.frame.width - separatorInset.left - separatorInset.right, height: lineHeight)
+        lineView.frame = CGRect(x: separatorInset.left, y: self.bounds.height - separatorInset.bottom - lineHeight, width: self.bounds.width - separatorInset.left - separatorInset.right, height: lineHeight)
         customSelectedBackgroundView.frame = CGRect(x: 0, y: 0, width: frame.width, height: frame.height)
     }
     

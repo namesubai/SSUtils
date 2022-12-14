@@ -691,6 +691,14 @@ public extension Date {
     var tomorrow: Date {
         return calendar.date(byAdding: .day, value: 1, to: self) ?? Date()
     }
+    
+    var previousMonth: Date {
+        return calendar.date(byAdding: .month, value: -1, to: self) ?? Date()
+    }
+    
+    var forwardMonth: Date {
+        return calendar.date(byAdding: .month, value: 1, to: self) ?? Date()
+    }
 
     /// SwifterSwift: UNIX timestamp from date.
     ///
@@ -944,6 +952,7 @@ public extension Date {
     /// - Returns: date string.
     func string(withFormat format: String = "dd/MM/yyyy HH:mm") -> String {
         let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US")
         dateFormatter.dateFormat = format
         return dateFormatter.string(from: self)
     }
@@ -1231,7 +1240,150 @@ public extension Date {
     }
 
 }
+private let arrTian: [String] = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
+private let arrDi: [String] = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+private let Zodiacs: [String] = ["鼠", "牛", "虎", "兔", "龙", "蛇", "马", "羊", "猴", "鸡", "狗", "猪"]
+public extension Date {
+    var daysOfMonth: [Date] {
+        if let range = calendar.range(of: .day, in: .month, for: self) {
+            
+            let dateStrings = [Int](1...range.count).map({
+                dayNumber -> String in
+                let string = string(withFormat: "yyyy-MM") + "-\(dayNumber)"
+                return string
+            })
+            let dates = dateStrings.map({
+                $0.date(format: "yyyy-MM-dd")
+            }).compactMap({$0})
+            return dates
+        }
+        return []
+    }
+    
+    var monthsOfYear: [Date] {
+        if let range = calendar.range(of: .month, in: .year, for: self) {
+            
+            let monthStrings = [Int](1...range.count).map({
+                monthNum -> String in
+                let string = string(withFormat: "yyyy") + "-\(monthNum)"
+                return string
+            })
+            let dates = monthStrings.map({
+                $0.date(format: "yyyy-MM")
+            }).compactMap({$0})
+            return dates
+        }
+        return []
+    }
+    
+    func chineseCalendar() -> String {
+           //初始化农历日历
+           let lunarCalendar = Calendar.init(identifier: .chinese)
+           
+           ///获得农历月
+           let lunarMonth = DateFormatter()
+           lunarMonth.locale = Locale(identifier: "zh_CN")
+           lunarMonth.dateStyle = .medium
+           lunarMonth.calendar = lunarCalendar
+           lunarMonth.dateFormat = "MMM"
+           
+           let month = lunarMonth.string(from: self)
+           
+           //获得农历日
+           let lunarDay = DateFormatter()
+           lunarDay.locale = Locale(identifier: "zh_CN")
+           lunarDay.dateStyle = .medium
+           lunarDay.calendar = lunarCalendar
+           lunarDay.dateFormat = "d"
+           
+           let day = lunarDay.string(from: self)
 
+           //返回农历月
+           if day == "初一" {
+               return month
+           }
+           
+           //返回农历日期
+           return day
+       }
+    
+    func chineseCalendarString(format: String) -> String {
+        //初始化农历日历
+        let lunarCalendar = Calendar.init(identifier: .chinese)
+        
+        ///获得农历月
+        let lunarMonth = DateFormatter()
+        lunarMonth.locale = Locale(identifier: "zh_CN")
+        lunarMonth.dateStyle = .medium
+        lunarMonth.calendar = lunarCalendar
+        lunarMonth.dateFormat = format
+        let dateStr = lunarMonth.string(from: self)
+        return dateStr
+    }
+    
+     func era(withYear year: Int) -> String {
+        let heavenlyStemIndex: Int = (year - 1) % arrTian.count
+        let heavenlyStem: String = arrTian[heavenlyStemIndex]
+        let earthlyBrancheIndex: Int = (year - 1) % arrDi.count
+        let earthlyBranche: String = arrDi[earthlyBrancheIndex]
+        return heavenlyStem + earthlyBranche
+    }
+        
+    func chineseYear() -> String {
+        let calendar: Calendar = Calendar(identifier: .chinese)
+        return era(withYear: calendar.component(.year, from: self))
+    }
+    func chineseMonth() -> String {
+        let calendar: Calendar = Calendar(identifier: .chinese)
+        let year = calendar.component(.year, from: self)
+        let heavenlyStemIndex: Int = (year - 1) % arrTian.count
+        let heavenlyStem: String = arrTian[heavenlyStemIndex]
+        var month = calendar.component(.month, from: self)
+
+        var num = (heavenlyStemIndex + 1) * 2 + month
+        num = num % 10
+        if num == 0 {
+            num = 10
+        }
+        let heavenlyStem1: String = arrTian[num - 1]
+        month = month + 2
+        month = month % 12
+        if month == 0 {
+            month = 12
+        }
+        return heavenlyStem1 + arrDi[month - 1]
+    }
+    func chineseDay() -> String {
+        let calendar: Calendar = Calendar(identifier: .chinese)
+        return era(withYear: calendar.component(.day, from: self))
+    }
+    
+    func zodiac(withYear year: Int) -> String {
+        let zodiacIndex: Int = (year - 1) % Zodiacs.count
+        return Zodiacs[zodiacIndex]
+    }
+        
+    func zodiac() -> String {
+        let calendar: Calendar = Calendar(identifier: .chinese)
+        return zodiac(withYear: calendar.component(.year, from: self))
+    }
+    
+//    func monthTable() -> [[String]] {
+//        let arr = [["丙寅月", "戊寅月", "庚寅月", "壬寅月", "甲寅月"],
+//            ["丁卯月", "己卯月", "辛卯月", "癸卯月", "乙卯月"],
+//            ["戊辰月", "庚辰月", "壬辰月", "甲辰月", "丙辰月"],
+//            ["己巳月", "辛巳月", "癸巳月", "乙巳月", "丁巳月"],
+//            ["庚午月", "壬午月", "甲午月", "丙午月", "戊午月"],
+//            ["辛未月", "癸未月", "乙未月", "丁未月", "己未月"],
+//            ["壬申月", "甲申月", "丙申月", "戊申月", "庚申月"],
+//            ["癸酉月", "乙酉月", "丁酉月", "己酉月", "辛酉月"],
+//            ["甲戌月", "丙戌月", "戊戌月", "庚戌月", "壬戌月"],
+//            ["乙亥月", "丁亥月", "己亥月", "辛亥月", "癸亥月"],
+//            ["丙子月", "戊子月", "庚子月", "壬子月", "甲子月"],
+//            ["丁丑月", "己丑月", "辛丑月", "癸丑月", "乙丑月"]]
+//        let monthNum = ["2月", "3月", "4月","5月", "6月", "7月", "8月", "9月", "10月", "11月", @"12月", "1月"];
+//    }
+}
 
 #endif
 
@@ -1240,6 +1392,7 @@ public extension String {
     func date(format: String) -> Date? {
         let d = DateFormatter()
         d.dateFormat = format
+        d.timeZone = TimeZone.current
         let date = d.date(from: self)
         return date
     }

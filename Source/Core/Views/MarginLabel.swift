@@ -9,7 +9,41 @@ import UIKit
 
 open class MarginLabel: UILabel {
 
+    open var corners: UIRectCorner = .allCorners {
+        didSet {
+            refreshLayout()
+        }
+    }
+    open var cornerRadiusSize: CGFloat = 0
+    open var isAutoCornerRadius: Bool = false {
+        didSet {
+            refreshLayout()
+        }
+    }
+    open var lineWidth: CGFloat? {
+        didSet {
+            refreshLayout()
+        }
+    }
+    open var lineColor: UIColor? {
+        didSet {
+            refreshLayout()
+        }
+    }
+    open func refreshLayout() {
+        setNeedsDisplay()
+        setNeedsLayout()
+        invalidateIntrinsicContentSize()
+    }
     
+    open override func layoutSubviews() {
+        super.layoutSubviews()
+        if self.isAutoCornerRadius {
+            addCorner(roundingCorners: corners, cornerSize: CGSize(width: self.bounds.height / 2, height: self.bounds.height / 2), borderColor: lineColor?.cgColor, borderWidth: lineWidth)
+        } else {
+            addCorner(roundingCorners: corners, cornerSize: CGSize(width: cornerRadiusSize, height: cornerRadiusSize), borderColor: lineColor?.cgColor, borderWidth: lineWidth)
+        }
+    }
     
     open var space: UIEdgeInsets = .zero {
         didSet {

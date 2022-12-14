@@ -90,7 +90,36 @@ public extension String {
 public extension String {
     func size(of size: CGSize, font: UIFont) -> CGSize {
         let str = self as NSString
-        return str.boundingRect(with: size, options: [.usesLineFragmentOrigin,.usesFontLeading], attributes: [NSAttributedString.Key.font : font], context: nil).size
+        var size = str.boundingRect(with: size, options: [.usesLineFragmentOrigin,.usesFontLeading], attributes: [NSAttributedString.Key.font : font], context: nil).size
+        size = CGSize(width: size.width.rounded(.up), height: size.height.rounded(.up))
+        return size
+    }
+    
+    func oneLineSize(of size: CGSize, font: UIFont) -> CGSize {
+        let p = NSMutableParagraphStyle()
+        p.maximumLineHeight = font.pointSize
+        let str = self as NSString
+        var size = str.boundingRect(with: size, options: [.usesLineFragmentOrigin,.usesFontLeading], attributes: [.font : font, .paragraphStyle : p], context: nil).size
+        size = CGSize(width: size.width.rounded(.up), height: size.height.rounded(.up))
+        return size
+    }
+    
+}
+
+extension UILabel {
+    func autoCalcSize(maxWidth: CGFloat = 0) -> CGSize {
+        guard let text = text else { return .zero }
+        var maxSize: CGSize = .zero
+        if maxWidth > 0{
+            maxSize = CGSize(width: maxWidth, height: CGFloat(MAXFLOAT))
+        }
+        if numberOfLines == 1 {
+            return text.oneLineSize(of: maxSize, font: font)
+        } else {
+            
+            return text.size(of: maxSize, font: font)
+        }
+       
     }
 }
 
@@ -372,4 +401,11 @@ public extension String {
         let regex = "^(?:[\\p{L}0-9!#$%\\&'*+/=?\\^_`{|}~-]+(?:\\.[\\p{L}0-9!#$%\\&'*+/=?\\^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[\\p{L}0-9](?:[a-z0-9-]*[\\p{L}0-9])?\\.)+[\\p{L}0-9](?:[\\p{L}0-9-]*[\\p{L}0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[\\p{L}0-9-]*[\\p{L}0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])$"
         return range(of: regex, options: .regularExpression, range: nil, locale: nil) != nil
     }
+}
+
+public extension String {
+    var isNum: Bool {
+        Int(self) != nil
+    }
+   
 }

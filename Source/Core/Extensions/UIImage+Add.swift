@@ -56,6 +56,63 @@ public extension UIImage {
         UIGraphicsEndImageContext()
         return newImage
     }
+    
+    func clipImage(rect: CGRect, superSize: CGSize? = nil) -> UIImage? {
+        
+        let sourceImageRef = cgImage!
+        let scale = size.width / (superSize?.width ?? App.width)
+        let hScale = size.height / (superSize?.height ?? App.height)
+        let rect = CGRect(x: rect.minX * scale, y: rect.minY * hScale, width: rect.width * scale, height: rect.height * hScale)
+        if let newImageRef = sourceImageRef.cropping(to: rect) {
+            let newImage = UIImage(cgImage: newImageRef)
+            return newImage
+        }
+       
+        return nil
+    }
+    
+    func scaleClipImage(rect: CGRect, superSize: CGSize) -> UIImage? {
+        
+        let sourceImageRef = cgImage!
+        let x = size.width * (rect.minX / superSize.width)
+        let y = size.height * (rect.minY / superSize.height)
+        let w = size.width * (rect.width / superSize.width)
+        let h = size.height * (rect.height / superSize.height)
+        let rect = CGRect(x: x, y: y, width: w, height:h)
+        if let newImageRef = sourceImageRef.cropping(to: rect) {
+            let newImage = UIImage(cgImage: newImageRef)
+            return newImage
+        }
+        
+        return nil
+    }
+    
+    func bitClipImage(rect: CGRect, superSize: CGSize) -> UIImage {
+        let x = size.width * (rect.minX / superSize.width)
+        let y = size.height * (rect.minY / superSize.height)
+        let w = size.width * (rect.width / superSize.width)
+        let h = size.height * (rect.height / superSize.height)
+        let rect = CGRect(x: x, y: y, width: w, height: h)
+        if size.width == 0 || size.height == 0 { return self }
+        UIGraphicsBeginImageContext(rect.size)
+        guard let context = UIGraphicsGetCurrentContext() else { return self }
+        context.translateBy(x: -rect.minX, y: -rect.minY)
+        draw(at: .zero)
+        let croppedIamge = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return croppedIamge ?? self
+        
+    }
+    
+    
+    func cropped(to rect: CGRect) -> UIImage {
+        guard rect.size.width <= size.width && rect.size.height <= size.height else { return self }
+        var scaledRect = rect.applying(CGAffineTransform(scaleX: scale, y: scale))
+        scaledRect = CGRect(x: scaledRect.origin.x.rounded(), y: scaledRect.origin.y.rounded(),
+                            width: scaledRect.size.width.rounded(), height: scaledRect.size.height.rounded())
+        guard let image = cgImage?.cropping(to: scaledRect) else { return self }
+        return UIImage(cgImage: image, scale: scale, orientation: imageOrientation)
+    }
 }
 // MARK: 图片设置圆角
 public extension UIImage {
@@ -235,16 +292,21 @@ public extension UIImage {
     func saveLibrary(notAuthorized: (() -> Void)? = nil, success: (() -> Void)? = nil) {
         PHPhotoLibrary.requestAuthorization { status in
             switch status {
-            case .authorized:
-                UIImageWriteToSavedPhotosAlbum(self, nil, nil, nil)
-                if let success = success {
-                    success()
-                }
-            default:
-                if let notAuthorized = notAuthorized {
-                    notAuthorized()
-                }
-                break
+                case .authorized:
+                    UIImageWriteToSavedPhotosAlbum(self, nil, nil, nil)
+                    DispatchQueue.main.async {
+                        if let success = success {
+                            success()
+                        }
+                    }
+                    
+                default:
+                    DispatchQueue.main.async {
+                        if let notAuthorized = notAuthorized {
+                            notAuthorized()
+                        }
+                    }
+                    break
             }
         }
     }
@@ -264,4 +326,282 @@ public extension UIImage {
         UIGraphicsEndImageContext()
         return newImage
     }
+}
+
+
+public extension UIImage {
+    func scaled(toHeight: CGFloat, opaque: Bool = false) -> UIImage? {
+        let scale = toHeight / size.height
+        let newWidth = size.width * scale
+        UIGraphicsBeginImageContextWithOptions(CGSize(width: newWidth, height: toHeight), opaque, self.scale)
+        draw(in: CGRect(x: 0, y: 0, width: newWidth, height: toHeight))
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+
+    /// SwifterSwift: UIImage scaled to width with respect to aspect ratio.
+    ///
+    /// - Parameters:
+    ///   - toWidth: new width.
+    ///   - opaque: flag indicating whether the bitmap is opaque.
+    /// - Returns: optional scaled UIImage (if applicable).
+    func scaled(toWidth: CGFloat, opaque: Bool = false) -> UIImage? {
+        let scale = toWidth / size.width
+        let newHeight = size.height * scale
+        UIGraphicsBeginImageContextWithOptions(CGSize(width: toWidth, height: newHeight), opaque, self.scale)
+        draw(in: CGRect(x: 0, y: 0, width: toWidth, height: newHeight))
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+    
+    func rotated(by radians: CGFloat) -> UIImage? {
+        let destRect = CGRect(origin: .zero, size: size)
+            .applying(CGAffineTransform(rotationAngle: radians))
+        let roundedDestRect = CGRect(x: destRect.origin.x.rounded(),
+                                     y: destRect.origin.y.rounded(),
+                                     width: destRect.width.rounded(),
+                                     height: destRect.height.rounded())
+        
+        UIGraphicsBeginImageContext(roundedDestRect.size)
+        guard let contextRef = UIGraphicsGetCurrentContext() else { return nil }
+        
+        contextRef.translateBy(x: roundedDestRect.width / 2, y: roundedDestRect.height / 2)
+        contextRef.rotate(by: radians)
+        
+        draw(in: CGRect(origin: CGPoint(x: -size.width / 2,
+                                        y: -size.height / 2),
+                        size: size))
+        
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+}
+
+extension UIImage {
+    
+    // MARK: 图片翻转(base)
+    /// 图片翻转(base)
+    /// - Parameter orientation: 翻转类型
+    /// - Returns: 翻转后的图片
+    public func rotate(orientation: UIImage.Orientation) -> UIImage? {
+        guard let imageRef = self.cgImage else {
+            return nil
+        }
+        let rect = CGRect(x: 0, y: 0, width: imageRef.width, height: imageRef.height)
+        var bounds = rect
+        var transform: CGAffineTransform = CGAffineTransform.identity
+        
+        switch orientation {
+        case .up:
+            return self
+        case .upMirrored:
+            // 图片左平移width个像素
+            transform = CGAffineTransform(translationX: rect.size.width, y: 0)
+            // 缩放
+            transform = transform.scaledBy(x: -1, y: 1)
+        case .down:
+            transform = CGAffineTransform(translationX: rect.size.width, y: rect.size.height)
+            transform = transform.rotated(by: CGFloat(Double.pi))
+        case .downMirrored:
+            transform = CGAffineTransform(translationX: 0, y: rect.size.height)
+            transform = transform.scaledBy(x: 1, y: -1)
+        case .left:
+            swapWidthAndHeight(rect: &bounds)
+            transform = CGAffineTransform(translationX:0 , y: rect.size.width)
+            transform = transform.rotated(by: CGFloat(Double.pi * 1.5))
+        case .leftMirrored:
+            swapWidthAndHeight(rect: &bounds)
+            transform = CGAffineTransform(translationX:rect.size.height , y: rect.size.width)
+            transform = transform.scaledBy(x: -1, y: 1)
+            transform = transform.rotated(by: CGFloat(Double.pi * 1.5))
+        case .right:
+            swapWidthAndHeight(rect: &bounds)
+            transform = CGAffineTransform(translationX:rect.size.height , y: 0)
+            transform = transform.rotated(by: CGFloat(Double.pi / 2))
+        case .rightMirrored:
+            swapWidthAndHeight(rect: &bounds)
+            transform = transform.scaledBy(x: -1, y: 1)
+            transform = transform.rotated(by: CGFloat(Double.pi / 2))
+        default:
+            return nil
+        }
+        
+        UIGraphicsBeginImageContext(bounds.size)
+        guard let context = UIGraphicsGetCurrentContext() else {
+            UIGraphicsEndImageContext()
+            return nil
+        }
+        //图片绘制时进行图片修正
+        switch orientation {
+        case .left:
+            fallthrough
+        case .leftMirrored:
+            fallthrough
+        case .right:
+            fallthrough
+        case .rightMirrored:
+            context.scaleBy(x: -1.0, y: 1.0)
+            context.translateBy(x: -bounds.size.width, y: 0.0)
+        default:
+            context.scaleBy(x: 1.0, y: -1.0)
+            context.translateBy(x: 0.0, y: -rect.size.height)
+        }
+        context.concatenate(transform)
+        context.draw(imageRef, in: rect)
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+    
+    /// 交换宽高
+    /// - Parameter rect: image 的 frame
+    private func swapWidthAndHeight(rect: inout CGRect) {
+        let swap = rect.size.width
+        rect.size.width = rect.size.height
+        rect.size.height = swap
+    }
+}
+
+
+extension UIImage {
+    
+    
+    public func resized(withPercentage percentage: CGFloat, isOpaque: Bool = true) -> UIImage? {
+        let canvas = CGSize(width: size.width * percentage, height: size.height * percentage)
+        let format = imageRendererFormat
+        format.opaque = isOpaque
+        return UIGraphicsImageRenderer(size: canvas, format: format).image {
+            _ in draw(in: CGRect(origin: .zero, size: canvas))
+        }
+    }
+   
+    public func compress(to kb: Int, clipSize: CGSize? = nil) -> UIImage? {
+        guard let imageData = pngData() else { return self }
+        var currentImage: UIImage?
+        if let compressImageData = try? ImageCompress.compressImageData(imageData, limitDataSize: kb * 1024) {
+            currentImage = UIImage(data: compressImageData)
+            logDebug("压缩后图片大小：\(compressImageData.count.sizeFromByte())")
+        }
+        if let clipSize = clipSize {
+            if let compressImageData = try? ImageCompress.compressImageData(imageData, limitLongWidth: clipSize.width)  {
+                currentImage = UIImage(data: compressImageData)
+                logDebug("压缩后图片大小：\(compressImageData.count.sizeFromByte())")
+            }
+        }
+        return currentImage ?? self
+        
+//        let bytes = kb * 1024
+//        var compression: CGFloat = 1.0
+//        guard var currentData = compressImageData(compression: compression) else { return self }
+//        if currentData.count <= bytes { return  self}
+//        var max: CGFloat = 1
+//        var min: CGFloat = 0
+//        var complete = false
+//        let step: CGFloat = step
+//        while !complete {
+//            compression -= step
+//            if compression < 0 {
+//                /// 如果压缩比例小于0退出
+//                complete = true
+//            } else {
+//
+//                if let compressData = compressImageData(compression: compression) {
+//                    if compressData.count >= currentData.count {
+//                        /// 如果检查到相等或者大于，证明压缩不下去了
+//                        complete = true
+//                    } else {
+//                        if compressData.count <= bytes {
+//                            complete = true
+//                        }
+//                    }
+//                    currentData = compressData
+//
+//                } else {
+//                    complete = true
+//                }
+//            }
+//
+//        }
+//
+//        var currentImage = UIImage(data: currentData)
+//
+//        if let clipSize = clipSize, clipSize.width > 0 {
+//            if let image = currentImage, image.size.width > 0  {
+//                let reSizeImage = image.resized(withPercentage: clipSize.width / image.size.width)
+//                currentImage = reSizeImage
+//            }
+//        } else {
+//            if autoResize {
+//                if currentData.count > bytes {
+//                    /// 如果还是小于给的大小，试下图片尺寸压缩
+//                    var lastDataLength = currentData.count
+//                    var ratio: CGFloat = 1
+//                    while lastDataLength > bytes {
+//                        ratio = ratio - step
+//                        if ratio < 0 {
+//                            /// 如果尺寸压缩比例小于0退出
+//                            lastDataLength = bytes
+//                        } else {
+//                            if let reSizeImage = currentImage?.resized(withPercentage: ratio) {
+//                                currentImage = reSizeImage
+//                                currentData == currentImage?.compressImageData(compression: 1)
+//                                lastDataLength = currentData.count
+//                            } else {
+//                                /// 如果尺寸压缩失败直接退出循环
+//                                lastDataLength = bytes
+//                            }
+//                        }
+//
+//                    }
+//                }
+//
+//            }
+//        }
+//
+//        return currentImage
+    }
+    
+    /// jpeg压缩后透明背景会变成白色，添加白色透明通道。jpeg不支持透明背景
+    /// 把图片白色变透明
+    func imageByMakingWhiteBackgroundTransparent() -> UIImage? {
+        
+        let image = UIImage(data: self.jpegData(compressionQuality: 1.0)!)!
+        let rawImageRef: CGImage = image.cgImage!
+        
+        let colorMasking: [CGFloat] = [222, 255, 222, 255, 222, 255]
+        UIGraphicsBeginImageContext(image.size);
+        
+        let maskedImageRef = rawImageRef.copy(maskingColorComponents: colorMasking)
+        UIGraphicsGetCurrentContext()?.translateBy(x: 0.0,y: image.size.height)
+        UIGraphicsGetCurrentContext()?.scaleBy(x: 1.0, y: -1.0)
+        UIGraphicsGetCurrentContext()?.draw(maskedImageRef!, in: CGRect.init(x: 0, y: 0, width: image.size.width, height: image.size.height))
+        let result = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+        return result
+        
+    }
+    
+//    func compressImageData(compression:Double) -> Data? {
+//        guard let rawData = pngData() else { return nil }
+//
+//        guard let imageSource = CGImageSourceCreateWithData(rawData as CFData, [kCGImageSourceShouldCache: false, kCGImageSourceTypeIdentifierHint : UTType.png.identifier] as CFDictionary),
+//              let writeData = CFDataCreateMutable(nil, 0),
+//              let imageType = CGImageSourceGetType(imageSource),
+//              let imageDestination = CGImageDestinationCreateWithData(writeData, imageType, 1, nil) else {
+//            return nil
+//        }
+//
+//        let frameProperties = [kCGImageDestinationLossyCompressionQuality: compression] as CFDictionary
+//        CGImageDestinationAddImageFromSource(imageDestination, imageSource, 0, frameProperties)
+//        guard CGImageDestinationFinalize(imageDestination) else {
+//            return nil
+//        }
+//        return writeData as Data
+//    }
+    
+    
+
 }

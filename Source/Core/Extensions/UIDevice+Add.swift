@@ -44,7 +44,7 @@ public extension UIDevice {
         }
         
     }
-    
+        
     public var modelName: String {
         var systemInfo = utsname()
         uname(&systemInfo)
@@ -112,4 +112,39 @@ public extension UIDevice {
         default:  return identifier
         }
     }
+}
+
+fileprivate var deviceIDFVKey: String {
+    App.bundleIdentifier + ".deviceIDFVKey"
+}
+fileprivate var associatedDeviceIDFVKey: Int8 = 0
+public extension UIDevice {
+    
+    
+    var deviceIdIDFV: String {
+        //       try? Application.share.keychain.remove(deviceIdentifierKey)
+        
+        if let deviceIdentifier = objc_getAssociatedObject(self, &associatedDeviceIDFVKey) as? String {
+            return deviceIdentifier
+        }else {
+            if let deviceIdentifier = UserDefaults.standard.value(forKey: deviceIDFVKey) {
+                objc_setAssociatedObject(self, &associatedDeviceIDFVKey, deviceIdentifier, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                return deviceIdentifier as! String
+            }else {
+                if let deviceIdentifier = try? keychain.getString(deviceIDFVKey) {
+                    objc_setAssociatedObject(self, &associatedDeviceIDFVKey, deviceIdentifier, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                    return deviceIdentifier
+                }else {
+                    let idfv = UIDevice.current.identifierForVendor?.uuidString;
+                    UserDefaults.standard.setValue(idfv, forKey: deviceIDFVKey)
+                    UserDefaults.standard.synchronize()
+                    try? keychain.set(deviceIdentifier, key: deviceIDFVKey)
+                    objc_setAssociatedObject(self, &associatedDeviceIDFVKey, deviceIdentifier, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                    return deviceIdentifier
+                }
+            }
+        }
+        
+        }
+    
 }

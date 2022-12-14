@@ -43,6 +43,9 @@ open class TableView: UITableView {
         separatorColor = Colors.line
         separatorStyle = .none
         separatorInset = UIEdgeInsets(top: 0, left: 16.wScale, bottom: 0, right: 16.wScale)
+        if #available(iOS 15.0, *) {
+            sectionHeaderTopPadding = 0
+        } 
         tableFooterView = UIView()
 //        tableHeaderView = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: 0.5))
     }
@@ -67,13 +70,13 @@ open class TableView: UITableView {
                     if let cell = cellForRow(at: indexPath) {
                         cell.ss_x = leftAndRightMargin
                         cell.ss_w = frame.width - leftAndRightMargin * 2
-                        if let defaultCell = cell as? TableViewCell {
-                            defaultCell.isHideLineView = false
+                        if let defaultCell = cell as? TableViewCell, defaultCell.isHideLineView == false {
+                            defaultCell.lineView.isHidden = false
                         }
                         if rows == 1 {
                             cell.addCorner(roundingCorners: [.topLeft, .topRight, .bottomLeft, .bottomRight], cornerSize: CGSize(width: insetGroupedCornerRadius, height: insetGroupedCornerRadius))
-                            if let defaultCell = cell as? TableViewCell {
-                                defaultCell.isHideLineView = true
+                            if let defaultCell = cell as? TableViewCell, defaultCell.isHideLineView == false {
+                                defaultCell.lineView.isHidden = true
                             }
                         } else {
                             if row == 0 {
@@ -82,14 +85,12 @@ open class TableView: UITableView {
                                 
                             } else if row == rows - 1 {
                                 cell.addCorner(roundingCorners: [.bottomLeft, .bottomRight], cornerSize: CGSize(width: insetGroupedCornerRadius, height: insetGroupedCornerRadius))
-                                if let defaultCell = cell as? TableViewCell {
-                                    defaultCell.isHideLineView = true
+                                if let defaultCell = cell as? TableViewCell, defaultCell.isHideLineView == false {
+                                    defaultCell.lineView.isHidden = true
                                 }
                             } else {
                                 cell.addCorner(roundingCorners: [], cornerSize: CGSize(width: insetGroupedCornerRadius, height: insetGroupedCornerRadius))
-                                if let defaultCell = cell as? TableViewCell {
-                                    defaultCell.isHideLineView = true
-                                }
+
                             }
                         }
                     }

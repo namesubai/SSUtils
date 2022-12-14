@@ -62,9 +62,15 @@ public extension Reactive where Base: UIImageView {
         return self.imageUrl(withPlaceholder: UIImage(color: UIColor.random, size: CGSize(width: 200, height: 200)))
     }
     
-    public func imageUrl(withPlaceholder placeholderImage: UIImage?, options: KingfisherOptionsInfo? = []) -> Binder<String?> {
+    public func imageUrl(withPlaceholder placeholderImage: UIImage? = nil, options: KingfisherOptionsInfo? = [], resize size: CGSize? = nil) -> Binder<String?> {
         return Binder(self.base, binding: { (imageView, url) in
-            guard let url = url else {  return }
+            guard var url = url else {  return }
+            var options = options
+            if let size = size {
+                let scale = UIScreen.main.scale
+                url += "?x-oss-process=image/resize,w_\(Int(round(size.width * scale))),h_\(Int(round(size.height * scale))),m_lfit"
+                options?.append(.scaleFactor(scale))
+            }
             imageView.kf.setImage(with: URL(string: url),
                                   placeholder: placeholderImage,
                                   options: options,
@@ -110,5 +116,31 @@ public extension Reactive where Base: ImageCache {
             })
             return Disposables.create { }
         }.asObservable()
+    }
+}
+
+
+public extension UIImageView {
+    public func imageUrl(url: String?, withPlaceholder placeholderImage: UIImage? = nil, imageSize: CGSize? = nil, conerRadious: CGFloat? = nil, isAnimated: Bool = false)  {
+        guard let url = url else {  return }
+        var processor: ImageProcessor? = nil
+        
+        var options = KingfisherOptionsInfo()
+        if isAnimated {
+            if let imageSize = imageSize, let conerRadious = conerRadious {
+                processor = DownsamplingImageProcessor(size: imageSize)
+                |> RoundCornerImageProcessor(cornerRadius: conerRadious)
+                options.append(KingfisherOptionsInfoItem.processor(processor!))
+            }
+            options.append(.transition(.fade(0.1)))
+            options.append(.forceTransition)
+        }
+        let imageView = self
+        imageView.kf.indicatorType = .activity
+        imageView.kf.setImage(with: URL(string: url),
+                              placeholder: placeholderImage,
+                              options: options,
+                              progressBlock: nil,
+                              completionHandler: { (result) in })
     }
 }

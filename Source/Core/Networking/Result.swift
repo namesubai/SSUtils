@@ -85,6 +85,12 @@ public protocol RootResult: Mappable {
     var isSuccess: Bool { get }
     /// 需要转换的jsonstring
     var needMapJsonString: String? { get }
+    /// 是否对result进行加密？
+    var isEncrypt: Bool { get }
+}
+
+extension RootResult {
+    public var isEncrypt: Bool { false }
 }
 
 

@@ -61,6 +61,38 @@ public class ResultTracker: SharedSequenceConvertibleType {
     }
 }
 
+public class EmptyTracker: SharedSequenceConvertibleType {
+    public typealias SharingStrategy = DriverSharingStrategy
+    private let _subject = PublishSubject<NoData?>()
+    
+    var noData: NoData!
+    
+    func trackEmpty<O: ObservableConvertibleType>(from source: O, noData: NoData) -> Observable<O.Element>  {
+        self.noData = noData
+        return source.asObservable().do(onNext: onNext, onError: onError)
+  }
+    
+    public func asSharedSequence() -> SharedSequence<SharingStrategy, NoData?> {
+        return _subject.asObservable().asDriverOnErrorJustComplete()
+    }
+    
+    public func asObservable() -> Observable<NoData?> {
+        return _subject.asObservable()
+    }
+    
+    func onError(_ error: Error) {
+        self.noData.error = error
+        _subject.onNext(noData)
+    }
+    func onNext(_ element: Any?) {
+        _subject.onNext(nil)
+    }
+ 
+    deinit {
+        _subject.onCompleted()
+    }
+}
+
 public extension ObservableConvertibleType {
     func trackResult(_ track: ResultTracker) -> Observable<Element> {
         return track.trackResult(from: self)
@@ -68,5 +100,9 @@ public extension ObservableConvertibleType {
     
     func trackError(_ trackError: ErrorTracker) -> Observable<Element> {
         return trackError.trackError(from: self)
+    }
+    
+    func trackEmpty(_ track: EmptyTracker, _ noData: NoData) -> Observable<Element> {
+        return track.trackEmpty(from: self, noData: noData)
     }
 }

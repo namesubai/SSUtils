@@ -15,6 +15,12 @@ public struct WebData {
 }
 
 open class WebViewController: ViewController {
+    
+    private lazy var webViewContainerV: UIView = {
+        let view = UIView()
+        return view
+    }()
+    
     public lazy var webView: WKWebView = {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
@@ -27,6 +33,12 @@ open class WebViewController: ViewController {
     private lazy var progressView: GradientView = {
         let view = GradientView()
         return view
+    }()
+    
+    private lazy var closeButtonItem: UIBarButtonItem = {
+        let button = UIBarButtonItem(image: UIImage(systemName: "xmark"), style: .plain, target: self, action: #selector(closeAction))
+        button.tintColor = Colors.headline
+        return button
     }()
     
     private var progressObserver: ((CGFloat) -> Void)? = nil
@@ -43,32 +55,49 @@ open class WebViewController: ViewController {
     open override var bottomToolView: UIView? {
         didSet {
             if let bottomToolView = bottomToolView {
-                webView.frame = CGRect(x: 0, y: 0, width: view.ss_w, height: view.ss_h - bottomToolView.ss_h)
+                webViewContainerV.frame = CGRect(x: 0, y: view.safeAreaInsets.top, width: view.ss_w, height: view.ss_h - bottomToolView.ss_h)
             } else {
-                webView.frame = CGRect(x: 0, y: 0, width: view.ss_w, height: view.ss_h)
+                webViewContainerV.frame = CGRect(x: 0, y: view.safeAreaInsets.top, width: view.ss_w, height: view.ss_h - view.safeAreaInsets.top)
             }
         }
     }
 
+    @objc open override func backAction() {
+        if webView.canGoBack {
+            webView.goBack()
+        } else {
+            super.backAction()
+        }
+    }
+    
+    @objc func closeAction() {
+        closeVC()
+    }
     
     open override func viewDidLoad() {
+        isAutoShowAndHideNavBackButton = false
         super.viewDidLoad()
     }
+    
     
     open override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         if let bottomToolView = bottomToolView {
-            webView.frame = CGRect(x: 0, y: 0, width: view.ss_w, height: view.ss_h - bottomToolView.ss_h)
+            webViewContainerV.frame = CGRect(x: 0, y: view.safeAreaInsets.top, width: view.ss_w, height: view.ss_h - bottomToolView.ss_h - view.safeAreaInsets.top)
         } else {
-            webView.frame = CGRect(x: 0, y: 0, width: view.ss_w, height: view.ss_h)
+            webViewContainerV.frame = CGRect(x: 0, y: view.safeAreaInsets.top, width: view.ss_w, height: view.ss_h - view.safeAreaInsets.top)
         }
+        progressView.ss_y = view.safeAreaInsets.top
     }
     
     open override func make() {
         super.make()
-        view.addSubview(webView)
+        view.addSubview(webViewContainerV)
+        webViewContainerV.addSubview(webView)
+        webView.snp.makeConstraints { make in
+            make.edges.equalTo(0)
+        }
         view.addSubview(progressView)
-        progressView.ss_y = navigationBarHeight + App.statusBarHeight
         progressView.ss_x = 0
         progressView.ss_h = 2
         webView.rx.observe(String.self, "title").subscribe(onNext: {
@@ -128,6 +157,14 @@ open class WebViewController: ViewController {
     public func observeLoadWebDataDidChange(webData:((WebData) -> Void)? = nil) {
         self.loadWebDataDidChange = webData
     }
+    
+    private func updateCloseButton() {
+        if webView.canGoBack {
+            self.otherleftBarButtonItems = [closeButtonItem]
+        } else {
+            self.otherleftBarButtonItems = []
+        }
+    }
 }
 
 
@@ -156,15 +193,17 @@ open class WebViewController: ViewController {
             isFirstLoadFinish = true
         }
         loadDidFinish?()
+        updateCloseButton()
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        self.webView.isHidden = false
-        self.view.hideNetworkErrorEmptyView()
-        self.view.hideEmptyView()
-    }
-    
-    public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+//        self.webView.isHidden = false
+//        self.view.hideNetworkErrorEmptyView()
+//        self.view.hideEmptyView()
+        updateCloseButton()
+        if isFirstLoadFinish {
+           return
+        }
         if let error = error as? NSError {
             if error.code == NSURLErrorNetworkConnectionLost ||
                 error.code == NSURLErrorCannotConnectToHost {
@@ -176,26 +215,65 @@ open class WebViewController: ViewController {
                         self.webView.isHidden = false
                     }
                 }
-                emptyView?.centerOffset = App.emptyCenterOffset
-    
+                emptyView?.centerOffset = emptyCenterOffset ?? App.emptyCenterOffset
+                
             } else {
                 self.webView.isHidden = true
+                self.view.hideEmptyView()
                 let emptyView = self.view.showEmptyView(image: App.emptyErrorImage,
-                                                           title: localized(name: "web_load_failed"),
-                                                           buttonCustomView: App.emptyNotNetworkButtonCustomView) {
+                                                        title: localized(name: "web_load_failed"),
+                                                        buttonCustomView: App.emptyNotNetworkButtonCustomView?()) {
                     [weak self] in guard let self = self else { return }
                     if let url = URL(string: self.url ?? "") {
                         self.webView.load(URLRequest(url: url))
                         self.webView.isHidden = false
                     }
                 }
-                emptyView?.centerOffset = App.emptyCenterOffset
+                emptyView?.centerOffset = emptyCenterOffset ?? App.emptyCenterOffset
             }
         }
+    }
+    
+    
+    public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        updateCloseButton()
+//        if let error = error as? NSError {
+//            if error.code == NSURLErrorNetworkConnectionLost ||
+//                error.code == NSURLErrorCannotConnectToHost {
+//                self.webView.isHidden = true
+//                let emptyView = self.view.showNetworkErrorEmptyView {
+//                    [weak self] in guard let self = self else { return }
+//                    if let url = URL(string: self.url ?? "") {
+//                        self.webView.load(URLRequest(url: url))
+//                        self.webView.isHidden = false
+//                    }
+//                }
+//                emptyView?.centerOffset = App.emptyCenterOffset
+//
+//            } else {
+//                self.webView.isHidden = true
+//                self.view.hideEmptyView()
+//                let emptyView = self.view.showEmptyView(image: App.emptyErrorImage,
+//                                                           title: localized(name: "web_load_failed"),
+//                                                           buttonCustomView: App.emptyNotNetworkButtonCustomView?()) {
+//                    [weak self] in guard let self = self else { return }
+//                    if let url = URL(string: self.url ?? "") {
+//                        self.webView.load(URLRequest(url: url))
+//                        self.webView.isHidden = false
+//                    }
+//                }
+//                emptyView?.centerOffset = App.emptyCenterOffset
+//            }
+//        }
     }
      
      public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
          
+         if navigationAction.targetFrame == nil {
+             if let url = navigationAction.request.url  {
+                 UIApplication.shared.open(url)
+             }
+         }
          decisionHandler(.allow)
      }
 }

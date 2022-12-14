@@ -17,3 +17,13 @@ public extension CGSize {
         CGSize(width: width * s, height: height * s)
     }
 }
+
+public extension CGRect {
+    func rounded(_ rule: FloatingPointRoundingRule) -> CGRect {
+        CGRect(x: origin.x.rounded(rule), y: origin.y.rounded(rule), width: size.width.rounded(rule), height: size.height.rounded(rule))
+    }
+    
+    func rounded() -> CGRect {
+        CGRect(x: origin.x.rounded(), y: origin.y.rounded(), width: size.width.rounded(), height: size.height.rounded())
+    }
+}

@@ -123,8 +123,8 @@ class  ImageBrowseAnimation: NSObject, SSAlertAnimation {
         
     }
     
-    func panToDimissTransilatePoint(point: CGPoint, panViewFrame: CGRect) -> CGFloat {
-       return 0
+    func panToDimissTransilatePoint(point: CGPoint, panViewFrame: CGRect) -> (PanProgress, PanCancelProgress) {
+        return (0, 0.4)
     }
     
     
@@ -150,6 +150,7 @@ public class ImageBrowseCellVM: NSObject {
     var zoomScale: CGFloat = 1
     var isDoubleTap: Bool = false
     var browse: ImageBrowse
+    var imageSize: CGSize?
     let downloadCompletion = PublishSubject<(String, UIImage?)>()
     public init(browse: ImageBrowse) {
         self.browse = browse
@@ -205,6 +206,7 @@ public class ImageBrowseCellVM: NSObject {
 
         var width = min(App.width, size.width)
         var height = width * (size.height / (size.width == 0 ? 1 : size.width))
+        imageSize = CGSize(width: width, height: height)
         return CGSize(width: width, height: height)
     }
 }
@@ -260,7 +262,7 @@ class ImageBrowseLayout: UICollectionViewFlowLayout, UIGestureRecognizerDelegate
         case .began:
             if let indexPath = collectionView.indexPathForItem(at: point) {
                 let cell = collectionView.cellForItem(at: indexPath) as? ImageBrowseCell
-                let image = cell?.cellVM?.browse.largeImage ?? cell?.cellVM?.browse.thumbImage
+                let image = cell?.imageV.image
 //                let url = cell?.cellVM?.browse.largeImageUrl ?? cell?.cellVM?.browse.thumbImageUrl
                 
                 if let image = image {
@@ -473,8 +475,8 @@ class ImageBrowseCell: UICollectionViewCell, UIScrollViewDelegate, EventTrigger 
         super.layoutSubviews()
         scrollView.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
         if !isEndDragAnimation {
-            imageV.ss_center = CGPoint(x: scrollView.contentSize.width / 2, y: scrollView.contentSize.height / 2)
-            
+            imageV.ss_center = CGPoint(x: max(App.width, scrollView.contentSize.width) / 2, y: scrollView.contentSize.height / 2)
+
         } else {
             
         }
@@ -499,7 +501,7 @@ class ImageBrowseCell: UICollectionViewCell, UIScrollViewDelegate, EventTrigger 
     func endDragAnimation(progress: CGFloat) {
         isDragAnimation = false
         isEndDragAnimation = true
-        setNeedsLayout()
+        layoutIfNeeded()
         if let trigger = self.triggerEvent {
             trigger(.endDrag(progress: progress))
         }
@@ -520,20 +522,25 @@ class ImageBrowseCell: UICollectionViewCell, UIScrollViewDelegate, EventTrigger 
         cellViewModel.image.subscribe(onNext: {
             [weak self]
             size, imag in
-            guard let self = self else { return }
-           
-            if size.height > App.height {
-                self.scrollView.contentSize = size
-            } else {
-                self.scrollView.contentSize = CGSize(width: App.width, height: App.height)
-            }
-            self.imageV.ss_size = size
-            self.imageV.image = imag
-            self.setNeedsLayout()
+            self?.imageV.image = imag
+            self?.setInitialFrame(size: size)
         }).disposed(by: disposeBag)
     }
     
-    
+    func setInitialFrame(size: CGSize?, isHidden: Bool = false) {
+        guard let size = size else { return }
+        if size.height > App.height && !isHidden {
+            self.scrollView.contentSize = CGSize(width: App.width, height: size.height)
+        } else {
+            self.scrollView.contentSize = CGSize(width: App.width, height: App.height)
+        }
+        if isHidden {
+            self.imageV.ss_size = CGSize(width: App.width, height:  min(size.height, App.height))
+        } else {
+            self.imageV.ss_size = CGSize(width: App.width, height:  size.height)
+        }
+        self.layoutIfNeeded()
+    }
     
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         return imageV
@@ -544,10 +551,9 @@ class ImageBrowseCell: UICollectionViewCell, UIScrollViewDelegate, EventTrigger 
     }
     
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
-        if scrollView.contentSize.height < scrollView.frame.height  {
-            scrollView.contentSize = CGSize(width: scrollView.frame.width, height: scrollView.frame.height)
-        }
-        imageV.ss_center = CGPoint(x: scrollView.contentSize.width / 2, y: scrollView.contentSize.height / 2)
+        let contentSize = CGSize(width: max(scrollView.frame.width, scrollView.contentSize.width), height: max(scrollView.frame.height, scrollView.contentSize.height))
+        scrollView.contentSize = contentSize
+        imageV.ss_center = CGPoint(x: max(App.width, scrollView.contentSize.width) / 2, y: scrollView.contentSize.height / 2)
     }
     
     func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
@@ -658,17 +664,21 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
     @objc func tapAction() {
         if let trigger = self.triggerEvent {
             trigger(.close)
-            let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell
-            
         }
     }
     
-  
+    func getCell() -> ImageBrowseCell? {
+        if collectionView.numberOfItems(inSection: 0) > currentIndex {
+            return collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as? ImageBrowseCell
+        }
+        return nil
+    }
     
     public func showAnimation() {
-        let imgeV = (collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell).imageV
+        
+        let imgeV = getCell()?.imageV
         if let orginalImageFrame = orginalImageFrame {
-            imgeV.frame = orginalImageFrame
+            imgeV?.frame = orginalImageFrame
         }
         
     }
@@ -681,7 +691,7 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
     }
     
     func refreshStartData(isStartAnimation: Bool = false) {
-        guard  let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as? ImageBrowseCell else { return }
+        guard  let cell = getCell() else { return }
         let imgeV = cell.imageV
         orginalImageFrame = imgeV.frame
         orginalCellFrame = cell.frame
@@ -703,7 +713,7 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
     }
     
     public func hideAnimation() {
-        let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell
+        guard let cell = getCell() else { return }
         let imgeV = cell.imageV
         if let orginalImageFrame = orginalImageFrame, let showBeightImageFrame = showBeightImageFrame,  let orginalCellFrame = orginalCellFrame {
           
@@ -721,9 +731,8 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
 
             } else {
                 cell.frame = orginalCellFrame
-                cell.setMinniumZoomScale()
+//                cell.setMinniumZoomScale()
                 imgeV.frame = showBeightImageFrame
-           
             }
         }
         bgMaskView.alpha = 0
@@ -731,12 +740,15 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
     }
     
     public func hideAnimationCompletion() {
-        let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell
+        guard let cell = getCell() else {return }
         cell.imageV.layer.masksToBounds = false
     }
     
     public func startHideAniamtion() {
-        let cell = collectionView.cellForItem(at: IndexPath(item: currentIndex, section: 0)) as! ImageBrowseCell
+        guard let cell = getCell() else {return }
+        if !isDragEndToOrginal {
+            cell.setInitialFrame(size: cell.cellVM?.imageSize, isHidden: true)
+        }
         cell.imageV.layer.masksToBounds = true
     }
     
@@ -787,8 +799,7 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
               
             case .beginDrag:
                 self.pageControl.isHidden = true
-                cell.setMinniumZoomScale()
-
+                cell.setInitialFrame(size: cell.cellVM?.imageSize, isHidden: true)
             }
         }
         return cell
@@ -846,7 +857,7 @@ public extension ImageBrowseView {
     static func browse(_ browes: [ImageBrowse], currentIndex: Int, downloadCompletion:  ((String, UIImage?) -> Void)? = nil) {
         if let currentVC = UIApplication.shared.keyWindow?.rootViewController {
             let browseView = ImageBrowseView(browses: browes, currentIndex: currentIndex, downloadCompletion: downloadCompletion)
-            let alertView = SSAlertView(customView: browseView, fromViewController: currentVC, animation: ImageBrowseAnimation(), maskType: .none, canPanDimiss: false)
+            let alertView = SSAlertView(customView: browseView, fromViewController: currentVC, animation: ImageBrowseAnimation(), navigationControllerClass: NavigationViewController.self, maskType: .none, canPanDimiss: false)
             alertView.isHideStatusBar = true
             alertView.show()
             browseView.trigger { [weak alertView] event in guard let alertView = alertView else { return }

@@ -10,6 +10,48 @@ import Moya
 import RxSwift
 import RxCocoa
 
+open class CustomNavView: View {
+    public private(set) var hideButton: UIButton!
+    public private(set) var showButton: UIButton!
+    public private(set) var label: UILabel!
+    public var showColor: UIColor = .white
+    public var showStatusBarStyle: UIStatusBarStyle = .default
+    public var hideStatusBarStyle: UIStatusBarStyle = .lightContent
+    public override func make() {
+        backgroundColor = showColor
+        let label = UILabel.makeLabel(text: nil, textColor: Colors.headline, font: Fonts.medium(18))
+        self.label = label
+        addSubview(label)
+        label.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.height.equalTo(44)
+            make.bottom.equalTo(0)
+        }
+        
+        let button = CustomButton()
+        button.contentType = .leftImageRigthText(space: 0, autoSize: false)
+        button.imageOriginAutoX = 0
+        self.hideButton = button
+        addSubview(button)
+        button.snp.makeConstraints { make in
+            make.left.equalTo(16.wScale)
+            make.centerY.equalTo(label.snp.centerY)
+            make.size.equalTo(CGSize(width: 40, height: 44))
+        }
+        
+        let button1 = CustomButton()
+        button1.contentType = .leftImageRigthText(space: 0, autoSize: false)
+        button1.imageOriginAutoX = 0
+        self.showButton = button1
+        addSubview(button1)
+        button1.snp.makeConstraints { make in
+            make.left.equalTo(16.wScale)
+            make.centerY.equalTo(label.snp.centerY)
+            make.size.equalTo(CGSize(width: 40, height: 44))
+        }
+        button1.alpha = 0
+    }
+}
 
 public extension Reactive where Base: UITableView {
     public var reloadData: ControlEvent<Void> {
@@ -32,7 +74,7 @@ open class TableViewController: ViewController {
             }
         }
     }
-    
+    open var isAutoShowNavWhenHideNavVisualEffectView = true
     public private(set) lazy var headerRefreshTrigger: Observable<Void> = {
         return tableView.headerRefreshTrigger
     }()
@@ -78,10 +120,66 @@ open class TableViewController: ViewController {
         }
     }
     
+    public private(set) lazy var customNavView: CustomNavView = {
+        let view = CustomNavView()
+        Observable.merge(view.hideButton.rx.tap.mapToVoid(),  view.showButton.rx.tap.mapToVoid()).subscribe(with: self, onNext: {
+            (self, _) in
+            self.backAction()
+        }).disposed(by: disposeBag)
+        return view
+    }()
+    public var isShowCustomNavView: Bool = false {
+        didSet {
+            if !isShowCustomNavView {
+                if self.customNavView.superview != nil {
+                    self.customNavView.removeFromSuperview()
+                }
+            } else {
+                self.view.addSubview(self.customNavView)
+                self.customNavView.snp.makeConstraints { make in
+                    make.left.top.right.equalTo(0)
+                    make.height.equalTo(self.navigationBarAndStatusBarHeight)
+                }
+                self.customNavView.backgroundColor = self.customNavView.showColor.withAlphaComponent(0)
+                
+                tableView.rx.contentOffset.subscribe(onNext: {
+                    [weak self] contentOffset in guard let self = self else { return }
+                    if contentOffset.y >= self.navigationBarAndStatusBarHeight {
+                        self.customNavView.backgroundColor = self.customNavView.showColor
+                        self.customNavView.label.alpha = 1
+                        self.statusBarStyle = self.customNavView.showStatusBarStyle
+                        self.customNavView.hideButton.alpha = 0
+                        self.customNavView.showButton.alpha = 1
+                    } else {
+                        var alpha = contentOffset.y / self.navigationBarAndStatusBarHeight
+                        self.customNavView.backgroundColor = self.customNavView.showColor.withAlphaComponent(alpha)
+                        alpha = max(0, alpha)
+                        self.customNavView.label.alpha = alpha
+                        self.customNavView.hideButton.alpha = 1 - alpha
+                        self.customNavView.showButton.alpha = alpha
+                        self.statusBarStyle = alpha == 0 ? self.customNavView.hideStatusBarStyle : self.customNavView.showStatusBarStyle
+                    }
+                    
+                }).disposed(by: self.customNavView.rx.disposeBag)
+            }
+            
+        }
+    }
     open override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        
+        if isShowCustomNavView {
+            self.view.bringSubviewToFront(customNavView)
+        }
     }
+    open override var emptyOnView: UIView? {
+        if customEmptyOnView != nil {
+          return customEmptyOnView!
+        }
+        return self.tableView
+    }
+    
+    private var refreshErrorDataTrigger = BehaviorRelay<Void>(value: ())
+
     
     open override func viewDidLoad() {
         super.viewDidLoad()
@@ -100,12 +198,17 @@ open class TableViewController: ViewController {
 //        tableView.snp.makeConstraints { (make) in
 //            make.edges.equalToSuperview()
 //        }
+        
         tableView.rx.contentOffset.map({$0.y <= 0}).skip(1).distinctUntilChanged().subscribe(onNext: {
             [weak self]
             isHide in
             guard let self = self else { return }
-            if self.isHideNavVisualEffectView  {
-                self.navigationController?.navigationBar.hideVisualEffectView(isHide: isHide, navBarColor: self.navigationBarColor)
+            if self.isHideNavVisualEffectView && self.isAutoShowNavWhenHideNavVisualEffectView {
+                if isHide {
+                    self.setClearNav()
+                } else {
+                    self.setDefaultNav()
+                }
             }
         }).disposed(by: disposeBag)
         
@@ -131,38 +234,37 @@ open class TableViewController: ViewController {
                 
 //                self.toastOnView?.showTextHUD(error.errorDescription)
                 if error.errorCode == 6 && self.isAutoShowNoNetWrokEmptyView {
-                    self.tableView.hideEmptyView()
+                    self.emptyOnView?.hideEmptyView()
 //                    print(self.tableView.numberOfSections)
                     if self.tableView.numberOfSections == 0 {
-                        self.tableView.showNetworkErrorEmptyView {
+                        self.emptyOnView?.showNetworkErrorEmptyView {
                             self.notNetworkRetryTrigger.onNext(())
                         }
-                        if self.tableView.tableHeaderView != nil {
-                            self.tableView.notNetworkEmptyView?.centerOffset = CGPoint(x: 0, y: -App.navAndStatusBarHeight + App.emptyCenterOffset.y + (self.tableView.tableHeaderView?.ss_h ?? 0))
+                        self.emptyOnView?.notNetworkEmptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
 
-                        }
+//                        if self.tableView.tableHeaderView != nil {
+//                            self.emptyOnView?.notNetworkEmptyView?.centerOffset = CGPoint(x: 0, y: -App.navAndStatusBarHeight + App.emptyCenterOffset.y + (self.tableView.tableHeaderView?.ss_h ?? 0))
+//
+//                        }
                     } else {
                         var row = [Int](0..<self.tableView.numberOfSections).reduce(0, {
                             result, index in
                             return result + self.tableView.numberOfRows(inSection: index)
                         })
                         if row == 0 {
-                            self.tableView.showNetworkErrorEmptyView {
+                            self.emptyOnView?.showNetworkErrorEmptyView {
                                 self.notNetworkRetryTrigger.onNext(())
                             }
-                            if self.tableView.tableHeaderView != nil {
-                                self.tableView.notNetworkEmptyView?.centerOffset = CGPoint(x: 0, y: -App.navAndStatusBarHeight + App.emptyCenterOffset.y - (self.tableView.tableHeaderView?.ss_h ?? 0))
-
-                            }
+                            self.emptyOnView?.notNetworkEmptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
                         }
                     }
 
                 }
                 
                 if error.errorCode == 6 {
-                    self.toastOnView?.showTextHUD(localized(name: "noInternetAccess"))
+                    self.textToastOnView?.showTextHUD(localized(name: "noInternetAccess"), tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
                 } else {
-                    self.toastOnView?.showTextHUD(localized(name: "network_error_common_msg"))
+                    self.textToastOnView?.showTextHUD(localized(name: "network_error_common_msg"), tag: kOnlyShowOneHudTag)?.layer.zPosition = 10
                 }
             }
            
@@ -176,26 +278,39 @@ open class TableViewController: ViewController {
         
         tableView.rx.reloadData.subscribe(onNext: { [weak self] _ in
             guard let self = self else { return }
-            if self.tableView.numberOfSections > 0 {
-                self.tableView.hideNetworkErrorEmptyView()
+            var row = [Int](0..<self.tableView.numberOfSections).reduce(0, {
+                result, index in
+                return result + self.tableView.numberOfRows(inSection: index)
+            })
+            if row > 0 {
+                self.emptyOnView?.hideNetworkErrorEmptyView()
+                self.emptyOnView?.hideEmptyView()
             }
         }).disposed(by: disposeBag)
         self.tableView.rx.didEndDisplayingCell.subscribe(onNext: {
             [weak self]
             event in
             guard let self = self else { return }
-            self.tableView.hideNetworkErrorEmptyView()
+            self.emptyOnView?.hideNetworkErrorEmptyView()
         }).disposed(by: disposeBag)
         
-        viewModel.noData.observe(on: MainScheduler.instance).subscribe(onNext: {
-            [weak self]
-            noData
+        Observable.combineLatest(self.tableView.rx.reloadData.catchAndReturn(()), Observable.merge(viewModel.emptyNoDataError.asObservable().map({($0, true)}), viewModel.noData.map({($0, false)}))).observe(on: MainScheduler.instance).subscribe(onNext: {
+            [weak self] data
             in
+            let (noData, isError) = data.1
+
             guard let self = self else {return}
-            self.tableView.hideNetworkErrorEmptyView()
-            
-            if let noData = noData  {
-                let emptyView  = self.tableView.showEmptyView(image: noData.image,
+            if let error = noData?.error as? MoyaError, error.errorCode == 6, noData != nil  {
+                return
+            }
+            self.emptyOnView?.hideNetworkErrorEmptyView()
+            var row = [Int](0..<self.tableView.numberOfSections).reduce(0, {
+                result, index in
+                return result + self.tableView.numberOfRows(inSection: index)
+            })
+            if let noData = noData, row == 0  {
+                self.emptyOnView?.hideEmptyView()
+                let emptyView  = self.emptyOnView?.showEmptyView(image: noData.image,
                                                               title: noData.title,
                                                               titleFont: noData.titleFont,
                                                               titleColor: noData.titleColor,
@@ -204,12 +319,18 @@ open class TableViewController: ViewController {
                                                               buttonTitleColor: noData.buttonTitleColor,
                                                               buttonCustomView: noData.customButtonView) {
                     [weak self] in guard let self = self else {return}
-                    self.emptyTrigger.onNext(())
+                    if isError {
+                        self.emptyErrorTrigger.onNext(())
+                    } else {
+                        self.emptyTrigger.onNext(())
+                    }
                 }
-                emptyView?.centerOffset = App.emptyCenterOffset
+                emptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
+
+                
                 self.tableView.customFooterView?.isHidden = true
                 self.tableView.footerEndRefresh()
-            }else {
+            } else {
                 self.tableView.hideEmptyView()
             }
 //            self.tableView.isHidden = (noData != nil)
@@ -219,10 +340,22 @@ open class TableViewController: ViewController {
             [weak self]
             in
             guard let self = self else {return}
-            self.tableView.hideEmptyView()
+            self.emptyOnView?.hideEmptyView()
             self.tableView.isHidden = false
             self.beginHeaderRefresh()
         }).disposed(by: disposeBag)
+        
+        if App.isAutoShowFooterNoMoreData {
+            tableView.rx.observe(CGSize.self, "contentSize").subscribe(with: self, onNext: {
+                (self, contentSize) in
+                if let contentSize = contentSize  {
+                    if contentSize.height < self.tableView.bounds.height, self.tableView.customFooterView?.isHideNoMoreData == false   {
+                        self.tableView.customFooterView?.isHideNoMoreData = true
+                    }
+                }
+            }).disposed(by: disposeBag)
+        }
+        
         
     }
     
@@ -293,8 +426,13 @@ public extension Reactive where Base: TableViewController {
             tableVC.tableView.customFooterView?.stateLabel?.isHidden = false
             if value {
                 tableVC.isNoMore = true
-//                tableVC.tableView.showFooterRefresh(isShow: true, customLoadingView: tableVC.footerCustomLoadingView)
+                tableVC.tableView.showFooterRefresh(isShow: true, customLoadingView: tableVC.footerCustomLoadingView)
                 tableVC.tableView.mj_footer?.endRefreshingWithNoMoreData()
+                tableVC.tableView.customFooterView?.isHideNoMoreData = false
+                if tableVC.tableView.contentSize.height < tableVC.tableView.bounds.height, tableVC.tableView.customFooterView?.isHideNoMoreData == false  {
+                    tableVC.tableView.customFooterView?.isHideNoMoreData = true
+                }
+                
             }else {
                 tableVC.isNoMore = false
                 tableVC.tableView.mj_footer?.resetNoMoreData()

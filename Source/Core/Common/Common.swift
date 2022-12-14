@@ -8,6 +8,9 @@
 import Foundation
 import CocoaLumberjack
 import SSAlertSwift
+import UIKit
+import AudioToolbox
+
 public struct Colors {
     public static var backgroud: UIColor = UIColor.hex(0xF5F6F7)
     public static var contentBackgroud: UIColor = UIColor.hex(0xFFFFFF)
@@ -24,7 +27,6 @@ public struct Colors {
     public static var gradientColors = [UIColor.hex(0x2D8BFF).cgColor, UIColor.hex(0x2080FF).cgColor]
 
 }
-
 
 public struct App {
     public static let shared = App()
@@ -81,17 +83,42 @@ public struct App {
     
     
     public static func isSimulator() -> Bool {
-        var isSim = false
-        #if arch(i386) || arch(x86_64)
-            isSim = true
-        #endif
-        return isSim
+        let simModelCode = ProcessInfo().environment["SIMULATOR_MODEL_IDENTIFIER"]
+        return simModelCode != nil
+    }
+    
+    public static var isDarkMode: Bool {
+        if #available(iOS 12.0, *) {
+           return UITraitCollection.current.userInterfaceStyle == .dark
+        }
+        return false
     }
     
     public static func feedbackGenerateImpact(style: UIImpactFeedbackGenerator.FeedbackStyle = .light)  {
         let feedback = UIImpactFeedbackGenerator(style: .light)
         feedback.prepare()
         feedback.impactOccurred()
+    }
+    
+    public static func playSound(url: URL, completion: ((Bool) -> Void)? = nil) {
+        var sourcId: SystemSoundID = 0
+        let errorCode = AudioServicesCreateSystemSoundID(url as CFURL, &sourcId)
+        if errorCode == 0 {
+            AudioServicesPlaySystemSoundWithCompletion(sourcId) {
+                completion?(true)
+            }
+        } else {
+            completion?(false)
+        }
+        
+    }
+    
+    public static var keyWindow: UIWindow? {
+        if #available(iOS 13.0.0, *) {
+            return UIApplication.shared.windows.filter { $0.isKeyWindow }.first
+        } else {
+            return UIApplication.shared.keyWindow
+        }
     }
     
     public static let width =  UIScreen.main.bounds.width
@@ -103,14 +130,19 @@ public struct App {
     public static let widthScale = (width / 375.0)
     public static let heigtScale = (height / 812.0)
     public static let fontScale = min(App.width, App.height) / 375.0
+    public static var safeAreaBottom: CGFloat { safeAreaInsets.bottom }
+    public static var pixel: CGFloat { 1.0 / UIScreen.main.scale }
+    public static var minPixel: CGFloat { max(1.0 / UIScreen.main.scale, 0.5) }
 
     public static var navBackImage: UIImage? = nil
     public static var isHideTabBarWhenPush: Bool = true
     public static var navIsTranslucent: Bool = true
     public static var tabIsTranslucent: Bool = true
-    public static var navBarTitleFont: UIFont = Fonts.semiBold(18)
+    public static var navBarTitleFont: UIFont = Fonts.semiBold(15)
     public static var headerCustomLodingView: (() -> UIView?)? = nil
     public static var footerCustomLodingView: (() -> UIView?)? = nil
+    public static var isShowFooterNoMoreData: Bool = true
+    public static var isAutoShowFooterNoMoreData: Bool = true
     public static var emptyNotNetworkImage: UIImage? = nil
     public static var emptyErrorImage: UIImage? = nil
     public static var emptyNotNetworkText: String? = nil
@@ -121,8 +153,11 @@ public struct App {
     public static var emptyButtonTitleFont: UIFont? = nil
     public static var emptyButtonTitleColor: UIColor? = nil
     public static var defaulAppStoreID: String = "1606154284"
-    public static var emptyNotNetworkButtonCustomView: UIView? = nil
+    public static var emptyNotNetworkButtonCustomView: (() -> UIView?)? = nil
     public static var emptyCenterOffset: CGPoint = .zero
+    public static var emptyTitleTopMargin: CGFloat? = nil
+    public static var emptyButtonTopMargin: CGFloat? = nil
+    public static var emptyBgColor: UIColor? = nil
 
     var serviceErrorHandle:(() -> Void)?
     public mutating func serviceErrorHandle(block:@escaping () -> Void) {
@@ -132,53 +167,92 @@ public struct App {
 
 
 public struct Fonts {
-   
+    public static var defaultFontFamilyName = ""
+    private static func defaultFont(_ size: CGFloat, weight: UIFont.Weight) -> UIFont {
+        var weightString: String?
+        if weight == .regular {
+            weightString = "Regular"
+        }
+        
+        if weight == .bold {
+            weightString = "Bold"
+        }
+        
+        if weight == .heavy {
+            weightString = "Heavy"
+        }
+        if weight == .medium {
+            weightString = "Medium"
+        }
+        if weight == .light {
+            weightString = "Light"
+        }
+        if weight == .thin {
+            weightString = "Thin"
+        }
+        if weight == .semibold {
+            weightString = "Semibold"
+        }
+        
+        if weight == .ultraLight {
+            weightString = "UltraLight"
+        }
+        if weight == .black {
+            weightString = "Black"
+        }
+        if defaultFontFamilyName.isEmpty {
+            return UIFont.systemFont(ofSize: size, weight: weight)
+        } else {
+            let name = defaultFontFamilyName + "-\(weightString ?? "")"
+            return UIFont(name: name, size: size) ?? UIFont.systemFont(ofSize: size, weight: weight)
+        }
+    }
     public static func auto(_ size: CGFloat) -> UIFont {
-        return UIFont.systemFont(ofSize: autoSize(size: size))
+        return defaultFont(autoSize(size: size), weight: .regular)
     }
     
     public static func autoBold(_ size: CGFloat) -> UIFont {
-        return UIFont.boldSystemFont(ofSize: autoSize(size: size))
+        return defaultFont(autoSize(size: size), weight: .bold)
     }
     
     public static func autoMedium(_ size: CGFloat) -> UIFont {
-        return UIFont.systemFont(ofSize: autoSize(size: size), weight: .medium)
+        return defaultFont(autoSize(size: size), weight: .medium)
     }
     
     public static func autoSemibold(_ size: CGFloat) -> UIFont {
-        return UIFont.systemFont(ofSize: autoSize(size: size), weight: .semibold)
+        return defaultFont(autoSize(size: size), weight: .semibold)
     }
     
     public static func autoHeavy(_ size: CGFloat) -> UIFont {
-        return UIFont.systemFont(ofSize: autoSize(size: size), weight: .heavy)
+        return defaultFont(autoSize(size: size), weight: .heavy)
     }
     
     public static func system(_ size: CGFloat) -> UIFont {
-         return UIFont.systemFont(ofSize: size)
+        return defaultFont(size, weight: .regular)
     }
     
     public static func bold(_ size: CGFloat) -> UIFont {
-         return UIFont.boldSystemFont(ofSize: size)
+        return defaultFont(size, weight: .bold)
     }
     
     public static func medium(_ size: CGFloat) -> UIFont {
-         return UIFont.systemFont(ofSize: size, weight: .medium)
+        return defaultFont(size, weight: .medium)
     }
     
     public static func semiBold(_ size: CGFloat) -> UIFont {
-         return UIFont.systemFont(ofSize: size, weight: .semibold)
+        return defaultFont(size, weight: .semibold)
     }
     
     public static func heavy(_ size: CGFloat) -> UIFont {
-         return UIFont.systemFont(ofSize: size, weight: .heavy)
+        return defaultFont(size, weight: .heavy)
     }
     
     public static func black(_ size: CGFloat) -> UIFont {
-         return UIFont.systemFont(ofSize: size, weight: .black)
+        return defaultFont(size, weight: .black)
     }
     
     public static func autoSize(size: CGFloat) -> CGFloat {
-        ceil(size * App.fontScale)
+        size * App.fontScale
     }
 }
 
@@ -213,7 +287,7 @@ public extension CGFloat {
     }
 
     var fontScale: CGFloat {
-        ceil(self * App.fontScale)
+        self * App.fontScale
     }
 }
 
@@ -225,7 +299,7 @@ public extension Int {
         return CGFloat(self) * App.heigtScale
     }
     var fontScale: CGFloat {
-        ceil(CGFloat(self) * App.fontScale)
+        CGFloat(self) * App.fontScale
     }
 }
 
@@ -238,7 +312,7 @@ public extension Double {
         return CGFloat(self) * App.heigtScale
     }
     var fontScale: CGFloat {
-        ceil(CGFloat(self) * App.fontScale)
+        CGFloat(self) * App.fontScale
     }
 }
 
@@ -251,7 +325,7 @@ public extension Float {
         return CGFloat(self) * App.heigtScale
     }
     var fontScale: CGFloat {
-        ceil(CGFloat(self) * App.fontScale)
+        CGFloat(self) * App.fontScale
     }
 }
 
@@ -276,18 +350,20 @@ public extension CGSize {
 
 public func logDebug(_ message: String) {
     #if DEBUG
-    print(message)
+    DDLogDebug(message)
     #endif
 }
 
 class Class {
     
 }
-
-public func image(_ name: String) -> UIImage? {
-    let image = UIImage(named: name, in: Bundle(for: Class.self), compatibleWith: nil)
-    return image
+extension UIImage {
+    public static func image(_ name: String) -> UIImage? {
+        let image = UIImage(named: name, in: Bundle(for: Class.self), compatibleWith: nil)
+        return image
+    }
 }
+
 
 
 

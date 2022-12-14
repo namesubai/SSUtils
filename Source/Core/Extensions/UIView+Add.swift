@@ -37,13 +37,13 @@ public class DashPatternView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 }
-
+private var currentLayerKey: Int8 = 0
 public extension UIView {
     enum Line {
         case top,left,bottom,right
     }
     @discardableResult func addLine(line: Line,
-                                    size: CGFloat = 0.5,
+                                    size: CGFloat = App.pixel,
                                     color: UIColor = Colors.line,
                                     insets: UIEdgeInsets = .zero) -> UIView {
         let lineView = UIView()
@@ -83,10 +83,39 @@ public extension UIView {
         return lineView
     }
     
-    func addCorner(size: CGSize = .zero, roundingCorners: UIRectCorner, cornerSize: CGSize) {
+    private var currentLayer: CAShapeLayer? {
+        set {
+            objc_setAssociatedObject(self, &currentLayerKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+        get {
+            objc_getAssociatedObject(self, &currentLayerKey) as? CAShapeLayer
+        }
+    }
+    
+    func addCorner(size: CGSize = .zero, roundingCorners: UIRectCorner, cornerSize: CGSize, borderColor: CGColor? = nil, borderWidth: CGFloat? = nil) {
         let frame = size == .zero ? bounds : CGRect(x: 0, y: 0, width: size.width, height: size.height)
         let path = UIBezierPath(roundedRect: frame, byRoundingCorners: roundingCorners, cornerRadii: cornerSize)
+        if borderColor != nil, borderWidth != nil {
+            let borderPath = UIBezierPath(roundedRect: CGRect(x: (borderWidth ?? 0) / 2, y:  (borderWidth ?? 0) / 2, width: frame.width - (borderWidth ?? 0), height: frame.height - (borderWidth ?? 0)), byRoundingCorners: roundingCorners, cornerRadii: cornerSize)
+            
+            currentLayer?.removeFromSuperlayer()
+            let borderLayer = CAShapeLayer()
+            borderLayer.frame = frame
+            borderLayer.fillColor = UIColor.clear.cgColor
+            borderLayer.lineJoin = .round
+            if let borderColor = borderColor {
+                borderLayer.strokeColor = borderColor
+            }
+            if let borderWidth = borderWidth {
+                borderLayer.lineWidth = borderWidth
+            }
+            borderLayer.path = borderPath.cgPath
+            layer.addSublayer(borderLayer)
+            currentLayer = borderLayer
+        }
+        
         let cornerLayer = CAShapeLayer()
+        cornerLayer.lineJoin = .round
         cornerLayer.frame = frame
         cornerLayer.path = path.cgPath
         cornerLayer.shouldRasterize = true
@@ -94,6 +123,7 @@ public extension UIView {
         cornerLayer.masksToBounds = true
         layer.mask = cornerLayer
     }
+    
 }
 
 
@@ -201,37 +231,75 @@ public extension UIView {
         animation.isRemovedOnCompletion = false
         layer.add(animation, forKey: "shakeRotate")
     }
+    
+    func scaleAnimation(duration: TimeInterval = 1, minScale: CGFloat = 0.95, maxScale: CGFloat = 1.05) {
+        let animation = CAKeyframeAnimation(keyPath: "transform.scale")
+        animation.duration = duration
+        animation.values = [minScale, maxScale, minScale]
+        animation.fillMode = .forwards
+        animation.repeatCount = MAXFLOAT
+        animation.isRemovedOnCompletion = false
+        layer.add(animation, forKey: "scale")
+    }
 }
 
 public extension UIView {
-    func removAllSubviews() {
+    func removAllSubviews(andHide: Bool = false) {
         subviews.forEach({
             view in
+            view.isHidden = andHide
             view.removeFromSuperview()
         })
     }
 }
 public extension UIStackView {
-    func removAllarrangedSubviews() {
+    func removAllarrangedSubviews(andHide: Bool = true) {
         arrangedSubviews.forEach({
             view in
             removeArrangedSubview(view)
             view.removeFromSuperview()
-            view.isHidden = true
+            view.isHidden = andHide
         })
     }
 }
 
 public extension UIView {
-    func screenshotImage() -> UIImage? {
+    func screenshotImage(rect: CGRect? = nil) -> UIImage? {
         UIGraphicsBeginImageContextWithOptions(layer.frame.size, false, UIScreen.main.scale)
         defer {
             UIGraphicsEndImageContext()
         }
         guard let context = UIGraphicsGetCurrentContext() else { return nil }
+        layer.frame = rect ?? layer.frame
         layer.render(in: context)
         return UIGraphicsGetImageFromCurrentImageContext()
     }
+    
+    func screenshotCorrectly() -> UIImage? {
+        var width = layer.frame.size.width
+        var height = layer.frame.size.height
+        if transform.a != 0 { width = (width / transform.a).rounded() }
+        if transform.d != 0 { height = (height / transform.d).rounded() }
+        UIGraphicsBeginImageContextWithOptions(CGSize(width: width, height: height), false, UIScreen.main.scale)
+        defer { UIGraphicsEndImageContext() }
+        guard let context = UIGraphicsGetCurrentContext() else { return nil }
+        layer.render(in: context)
+        return UIGraphicsGetImageFromCurrentImageContext()
+    }
+    
+    func openglSnapshotImage() -> UIImage?
+    {
+        defer {
+            UIGraphicsEndImageContext()
+        }
+        let size = self.bounds.size
+        UIGraphicsBeginImageContextWithOptions(layer.frame.size, false, UIScreen.main.scale)
+        let rect = self.frame
+        drawHierarchy(in: rect, afterScreenUpdates: true)
+        guard let context = UIGraphicsGetCurrentContext() else { return nil }
+        return UIGraphicsGetImageFromCurrentImageContext()
+    }
+
 }
 
 public extension UIScrollView {

@@ -21,6 +21,18 @@ public extension UIScrollView {
         }
     }
     
+    public func scrollToBottom(animation: Bool) {
+        DispatchQueue.main.async {
+            [weak self]
+            in
+            guard let self = self else { return }
+            let offsetY = self.contentSize.height - self.bounds.height + self.space.bottom
+            if offsetY > 0 {
+                self.setContentOffset(CGPoint(x: 0, y: offsetY), animated: animation)
+            }
+        }
+    }
+    
     var isBottom: Bool {
         let boottomOffset = self.contentSize.height - self.bounds.height + self.space.bottom
         if abs(boottomOffset - self.contentOffset.y) < 3 {

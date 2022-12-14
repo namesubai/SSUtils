@@ -17,7 +17,7 @@ public protocol NavigatorMoudle {
 public extension Navigator {
     enum Transition {
         case root(in: UIWindow, animated: Bool)
-        case navigation
+        case navigation(animate: Bool)
         case modal
         case fullScreenModal
         case overFullScreenModal
@@ -44,9 +44,9 @@ public class Navigator: NSObject {
     @discardableResult
     public func show(scene: NavigatorScene,
                      sender: UIViewController?,
-                     transition: Transition = .navigation, reduceLast: Int = 0) -> UIViewController? {
+                     transition: Transition = .navigation(animate: true), reduceLast: Int = 0, automReduceSameNameVC: Bool = false, completion: (() -> Void)? = nil) -> UIViewController? {
         if let target = scene.viewController()  {
-            show(target: target, sender: sender, transition: transition, reduceLast: reduceLast)
+            show(target: target, sender: sender, transition: transition, reduceLast: reduceLast, automReduceSameNameVC: automReduceSameNameVC, completion: completion)
             return target
         }
         return nil
@@ -70,7 +70,9 @@ public class Navigator: NSObject {
     private func show(target: UIViewController,
                       sender: UIViewController?,
                       transition: Transition,
-                      reduceLast: Int = 0) {
+                      reduceLast: Int = 0,
+                      automReduceSameNameVC: Bool = false,
+                      completion: (() -> Void)? = nil) {
         switch transition {
         case .root(let window, let animated):
             if !animated  {
@@ -87,22 +89,46 @@ public class Navigator: NSObject {
                     window.rootViewController = target
                     UIView.setAnimationsEnabled(oldState)
                 }, completion: { _ in
+                    completion?()
                 })
             }
 
            
             
-        case .navigation:
+        case .navigation(let animated):
             DispatchQueue.main.async {
+                
+                var viewControllers = sender?.navigationController?.viewControllers ?? []
+                if automReduceSameNameVC, viewControllers.count > 0 {
+                    if var lastVc = viewControllers.last {
+                        
+                        while NSStringFromClass(target.classForCoder) == NSStringFromClass(lastVc.classForCoder) {
+                            viewControllers.removeLast()
+                            guard let last = viewControllers.last  else  {
+                                break
+                            }
+                            lastVc = last
+                        }
+                    }
+                    
+                }
+                
                 if reduceLast == 0 {
-                    sender?.navigationController?.pushViewController(target, animated: true)
+                    if viewControllers.count > 0 {
+                        for _ in 0..<reduceLast {
+                            viewControllers.removeLast()
+                        }
+                        viewControllers.append(target)
+                    }
+                    sender?.navigationController?.setViewControllers(viewControllers, animated: animated, completion: completion)
+
                 } else {
                     if var viewControllers = sender?.navigationController?.viewControllers {
                         for _ in 0..<reduceLast {
                             viewControllers.removeLast()
                         }
                         viewControllers.append(target)
-                        sender?.navigationController?.setViewControllers(viewControllers, animated: true)
+                        sender?.navigationController?.setViewControllers(viewControllers, animated: animated, completion: completion)
                     }
                 }
             }
@@ -110,26 +136,26 @@ public class Navigator: NSObject {
         case .modal:
             DispatchQueue.main.async {
                 target.modalPresentationCapturesStatusBarAppearance = true
-                sender?.present(target, animated: true, completion: nil)
+                sender?.present(target, animated: true, completion: completion)
             }
             
         case .modalCross:
             target.modalTransitionStyle = .crossDissolve
             target.modalPresentationStyle = .fullScreen
             DispatchQueue.main.async {
-                sender?.present(target, animated: true, completion: nil)
+                sender?.present(target, animated: true, completion: completion)
             }
         case .fullScreenModal:
             DispatchQueue.main.async {
                 target.modalPresentationCapturesStatusBarAppearance = true
                 target.modalPresentationStyle = .fullScreen
-                sender?.present(target, animated: true, completion: nil)
+                sender?.present(target, animated: true, completion: completion)
             }
         case .overFullScreenModal:
             DispatchQueue.main.async {
                 target.modalPresentationCapturesStatusBarAppearance = true
                 target.modalPresentationStyle = .overFullScreen
-                sender?.present(target, animated: true, completion: nil)
+                sender?.present(target, animated: true, completion: completion)
             }
             
         case .customTransitionModal(let transition):
@@ -137,45 +163,43 @@ public class Navigator: NSObject {
                 target.modalPresentationCapturesStatusBarAppearance = true
                 target.modalPresentationStyle = .fullScreen
                 target.transitioningDelegate = transition
-                sender?.present(target, animated: true, completion: nil)
+                sender?.present(target, animated: true, completion: completion)
             }
             
         case .customModal:
             DispatchQueue.main.async {
                 target.modalPresentationCapturesStatusBarAppearance = true
                 target.modalPresentationStyle = .custom
-                sender?.present(target, animated: true, completion: nil)
+                sender?.present(target, animated: true, completion: completion)
             }
         case .pageSheet:
             DispatchQueue.main.async {
                 target.modalPresentationCapturesStatusBarAppearance = true
                 target.modalPresentationStyle = .pageSheet
-                sender?.present(target, animated: true, completion: nil)
+                sender?.present(target, animated: true, completion: completion)
             }
         }
     }
     
     
-    public func register(_ name: String, params:[String:Any?]? = nil, load:@escaping (String, [String:Any?]?) -> NavigatorScene?) {
-        if !registers.contains(where: {$0.name == name}) {
-            let register = NavigatorRegister(name: name, params: params, load: load)
-            registers.append(register)
-        }
-    }
+    
+    
     
     @discardableResult
     public func show(_ name: String,
                      sender: UIViewController? = nil,
                      params:[String:Any?]? = nil,
-                     transition: Transition = .navigation, reduceLast: Int = 0) -> UIViewController? {
+                     transition: Transition = .navigation(animate: true), reduceLast: Int = 0, automReduceSameNameVC: Bool = false) -> UIViewController? {
         if let register = registers.first(where: {$0.name == name}) {
             if let scene = register.load(name, params) {
-                return show(scene: scene, sender: sender, transition: transition, reduceLast: reduceLast)
+                return show(scene: scene, sender: sender, transition: transition, reduceLast: reduceLast, automReduceSameNameVC: automReduceSameNameVC)
             }
             
         }
         return nil
     }
+    
+    
     
     public func viewController(name: String) -> UIViewController? {
         if let register = registers.first(where: {$0.name == name}) {
@@ -198,3 +222,61 @@ public class Navigator: NSObject {
 }
 
 
+extension Navigator {
+    public func register(_ name: String, params:[String:Any?]? = nil, load:@escaping (String, [String:Any?]?) -> NavigatorScene?) {
+        if !registers.contains(where: {$0.name == name}) {
+            let register = NavigatorRegister(name: name, params: params, load: load)
+            registers.append(register)
+        }
+    }
+    
+    public func register(_ names: [String], params:[String:Any?]? = nil, load:@escaping (String, [String:Any?]?) -> NavigatorScene?) {
+        for name in names {
+            if !registers.contains(where: {$0.name == name}) {
+                let register = NavigatorRegister(name: name, params: params, load: load)
+                registers.append(register)
+            }
+        }
+        
+    }
+    
+    public func canOpenUrl(url: String) -> Bool {
+        checkRegister(url: url) != nil
+    }
+    public func openUrl(url: String, handleJump:([String: String?]?) -> Void ) {
+        handleJump(checkRegister(url: url)?.1)
+    }
+    
+    private func checkRegister(url: String) -> (NavigatorRegister, [String: String?])? {
+        let components = URLComponents(string: url)
+        let queryItems = components?.queryItems ?? []
+        var params = [String: String?]()
+        queryItems.forEach { item in
+            params[item.name] = item.value
+        }
+        let name = components?.path
+        
+        if let register = registers.first(where: {
+            r -> Bool in
+            let nameComponents = URLComponents(string: r.name)
+            return nameComponents?.scheme?.lowercased() == components?.scheme?.lowercased() &&
+            nameComponents?.host == components?.host &&
+            nameComponents?.path == components?.path
+        }) {
+            return (register, params)
+        }
+        return nil
+    }
+    
+    @discardableResult
+    public func openUrl(_ url: String,
+                        sender: UIViewController? = nil,
+                        transition: Transition = .navigation(animate: true), reduceLast: Int = 0, automReduceSameNameVC: Bool = false) -> UIViewController? {
+        if let (register, params) = checkRegister(url: url) {
+            if let scene = register.load(url, params) {
+                return show(scene: scene, sender: sender, transition: transition, reduceLast: reduceLast, automReduceSameNameVC: automReduceSameNameVC)
+            }
+        }
+        return nil
+    }
+}

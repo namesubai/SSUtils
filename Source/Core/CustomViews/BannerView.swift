@@ -11,8 +11,9 @@ import UIKit
 class BannerCell: UICollectionViewCell {
     public lazy var imageV: UIImageView = {
         let imageV = UIImageView()
-        imageV.backgroundColor = UIColor.lightGray
+        imageV.backgroundColor = UIColor.lightGray.withAlphaComponent(0.1)
         imageV.contentMode = .scaleAspectFill
+        imageV.layer.masksToBounds = true
         return imageV
     }()
     override init(frame: CGRect) {
@@ -27,9 +28,93 @@ class BannerCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 }
+public enum BannerDisplayType {
+    case `default`
+    case card
+}
+fileprivate class  BannerCollectionViewFlowLayout: UICollectionViewFlowLayout {
+    
+    var displayType: BannerDisplayType
+    var size: CGSize
+    init(displayType: BannerDisplayType = .default, size: CGSize) {
+        self.displayType = displayType
+        self.size = size
+        super.init()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    override func prepare() {
+        super.prepare()
+        itemSize = self.size
+        scrollDirection = .horizontal
+        estimatedItemSize = .zero
+        minimumInteritemSpacing = 0
+        minimumLineSpacing = 0
+        sectionInset = .zero
+        headerReferenceSize = .zero
+        footerReferenceSize = .zero
+    }
+    
+//    override func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
+//        guard let collectionView = collectionView else {  return super.layoutAttributesForElements(in: rect) }
+//        let arr = super.layoutAttributesForElements(in: rect)
+//        let currentPageIndex = Int(round(currentScrollOffset))
+////        let sections = collectionView.numberOfSections
+////        let indexPaths = [Int](0..<sections).reduce([IndexPath](), {
+////            result, section  in
+////            let rows = collectionView.numberOfItems(inSection: section)
+////            let indexPs = [Int](0..<rows).reduce([IndexPath](), {
+////                res, row in
+////                return res + [IndexPath(item: row, section: section)]
+////            })
+////            return result + indexPs
+////        })
+////        if let nextIndexPath = indexPaths.filter({
+////            $0.section * collectionView.numberOfItems(inSection: $0.section) + $0.item == currentPageIndex
+////        }).first {
+////            let progress = CGFloat(currentPageIndex + 1) - currentScrollOffset
+////            print(progress)
+////        }
+//        (arr ?? []).forEach({ attr in
+//            attr.frame = self.visibleRect
+//            let indexPath = attr.indexPath
+//            let totalIndex = indexPath.section * collectionView.numberOfItems(inSection: indexPath.section) + indexPath.item
+//            let progress = CGFloat(totalIndex) - currentScrollOffset
+//            var zIndex = Int(-abs(round(progress)))
+//            attr.zIndex = zIndex
+//            
+//            var transform = CGAffineTransform.identity
+//            var xAdjustment: CGFloat = 0
+//            var yAdjustment: CGFloat = 0
+//            var scale = 1 - progress
+//            scale = max(scale, 0.6)
+//            scale = min(scale, 0.9)
+//            
+//        })
+//        
+//        return arr
+//    }
+//    
+//    override public func shouldInvalidateLayout(forBoundsChange newBounds: CGRect) -> Bool {
+//        return true
+//    }
+    
+    private var currentScrollOffset: CGFloat {
+        let visibleRect = self.visibleRect
+        return scrollDirection == .horizontal ? (visibleRect.minX / max(visibleRect.width, 1)) : (visibleRect.minY / max(visibleRect.height, 1))
+    }
+    
+    private var visibleRect: CGRect {
+        collectionView.map { CGRect(origin: $0.contentOffset, size: $0.bounds.size) } ?? .zero
+    }
+}
 
 public class BannerView: UIView, EventTrigger {
-
+    
+    
+    
     public enum Event {
         case selected(index: Int)
     }
@@ -44,9 +129,14 @@ public class BannerView: UIView, EventTrigger {
         return view
     }()
     
-    public var playDuration: TimeInterval = 2
+    public var playDuration: TimeInterval = 4
     public var collectionView: UICollectionView!
-    public var isCanAutoPlay: Bool = false
+    public var isCanAutoPlay: Bool = true
+    public var isShowPageControl: Bool = false {
+        didSet {
+            pageControl.isHidden = !isShowPageControl
+        }
+    }
     public var imageUrls: [String?] = [] {
         didSet {
             pageControl.numOfPages = imageUrls.count
@@ -62,8 +152,8 @@ public class BannerView: UIView, EventTrigger {
                     self.startPlay()
                 }
             }
-
-           
+            
+            
         }
     }
     
@@ -72,25 +162,18 @@ public class BannerView: UIView, EventTrigger {
     public init(itemSize: CGSize) {
         self.itemSize = itemSize
         super.init(frame: .zero)
-        let layout = UICollectionViewFlowLayout()
-        layout.itemSize = itemSize
-        layout.scrollDirection = .horizontal
-        layout.minimumInteritemSpacing = 0
-        layout.minimumLineSpacing = 0
-        layout.sectionInset = .zero
-        layout.headerReferenceSize = .zero
-        layout.footerReferenceSize = .zero
+        let layout = BannerCollectionViewFlowLayout(size: itemSize)
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.isPagingEnabled = true
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.bounces = false
         collectionView.showsHorizontalScrollIndicator = false
+        collectionView.alwaysBounceHorizontal = false
+        collectionView.alwaysBounceVertical = false
+        collectionView.backgroundColor = UIColor.clear
         addSubview(collectionView)
         collectionView.register(BannerCell.self, forCellWithReuseIdentifier: BannerCell.cellName)
-        collectionView.snp.makeConstraints { make in
-            make.edges.equalTo(0)
-        }
         
         addSubview(pageControl)
         pageControl.snp.makeConstraints { make in
@@ -100,8 +183,17 @@ public class BannerView: UIView, EventTrigger {
         }
     }
     
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        collectionView.ss_origin = .zero
+        collectionView.ss_size = itemSize
+    }
     
     func startPlay() {
+        guard imageUrls.count > 1, isCanAutoPlay else {
+            return
+        }
+        
         timer = Timer.scheduledTimer(withTimeInterval: playDuration, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             if let indexPath = self.collectionView.indexPathForItem(at: CGPoint(x: self.collectionView.contentOffset.x + 1, y: 1)) {
@@ -112,11 +204,20 @@ public class BannerView: UIView, EventTrigger {
                     row = 0
                 }
                 let point = CGPoint(x: self.itemSize.width * CGFloat(self.imageUrls.count) * CGFloat(section) + self.itemSize.width * CGFloat(row), y: 0)
-                self.collectionView.setContentOffset(point, animated: true)
+                DispatchQueue.main.async {
+                    CATransaction.begin()
+                    self.collectionView.setContentOffset(point, animated: true)
+                    CATransaction.commit()
+                    
+//                    UIView.animate(withDuration: 0.25, delay: 0, animations: {
+//                        self.collectionView.contentOffset = point
+//                    })
+                }
+               
             }
             
         }
-        RunLoop.main.add(timer!, forMode: .default)
+        RunLoop.main.add(timer!, forMode: .common)
     }
     
     func endPlay() {
@@ -127,16 +228,14 @@ public class BannerView: UIView, EventTrigger {
     public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-   
     
-    
-
 }
+
 
 extension BannerView: UICollectionViewDataSource, UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: BannerCell.cellName, for: indexPath) as! BannerCell
-        cell.imageV.kf.setImage(with: URL(string: self.imageUrls[indexPath.row] ?? ""))
+        cell.imageV.imageUrl(url: self.imageUrls[indexPath.row], isAnimated: false)
         return cell
     }
     
@@ -171,6 +270,7 @@ extension BannerView: UICollectionViewDataSource, UICollectionViewDelegate {
         if indexPath?.section == 0 || indexPath?.section == section - 1 {
             collectionView.scrollToItem(at: IndexPath(item: indexPath?.row ?? 0, section: section / 2), at: UICollectionView.ScrollPosition.left, animated: false)
         }
+        startPlay()
     }
     
     public func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
@@ -184,4 +284,15 @@ extension BannerView: UICollectionViewDataSource, UICollectionViewDelegate {
         }
     }
   
+    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        endPlay()
+    }
+    public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
+        endPlay()
+    }
+    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate {
+            startPlay()
+        }
+    }
 }
