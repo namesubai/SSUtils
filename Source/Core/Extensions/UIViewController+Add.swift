@@ -224,12 +224,12 @@ public extension UIViewController {
 
 
 public extension UIViewController {
-    class func getRootViewController() -> UIViewController? {
-        let window: UIWindow? = UIApplication.shared.keyWindow
+    class func getRootViewController(fromWindow: UIWindow? = nil) -> UIViewController? {
+        let window: UIWindow? = fromWindow ?? App.mainWindow
         return window?.rootViewController
     }
-    class func getCurrentViewController() -> UIViewController? {
-        guard var currentViewController = UIViewController.getRootViewController() else {
+    class func getCurrentViewController(fromWindow: UIWindow? = nil) -> UIViewController? {
+        guard var currentViewController = UIViewController.getRootViewController(fromWindow: fromWindow) else {
             return nil
         }
         

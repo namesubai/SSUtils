@@ -7,7 +7,7 @@
 
 import UIKit
 
-public class CircleLoadingCustomView: UIView, SSProgressCustom {
+public class CircleLoadingCustomView: SSProgressCustomView {
     
     public enum LoadingType {
         case loading
@@ -48,6 +48,7 @@ public class CircleLoadingCustomView: UIView, SSProgressCustom {
 
                 progressShapLayer.path = progressBezierPath.cgPath
                 progressLabel.text = "\(Int((progress / 1) * 100.0))%"
+                layoutIfNeeded()
             }
         }
         get {

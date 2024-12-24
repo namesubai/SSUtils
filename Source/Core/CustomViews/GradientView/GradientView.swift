@@ -8,18 +8,19 @@
 import UIKit
 
 
-open class GradientView: UIView {
+open class GradientView: View {
 
     public var customView: UIView?
     public var corners: UIRectCorner = .allCorners
     public var cornerRadiusSize: CGFloat = 0
     
-    ///高度一边圆角
+    /// 高度一半圆角
     public var isAutoCornerRadius: Bool = false {
         didSet {
             refreshLayout()
         }
     }
+    /// custom内容撑开
     public var isAutoSize: Bool = false {
         didSet {
             refreshLayout()
@@ -52,7 +53,18 @@ open class GradientView: UIView {
         }
     }
     
+    open var startPoint: CGPoint = .zero {
+        didSet{
+            gradientLayer.startPoint = startPoint
+        }
+    }
     
+    open var endPoint: CGPoint = CGPoint(x: 1, y: 1) {
+        didSet{
+            gradientLayer.endPoint = endPoint
+        }
+    }
+
     public init(colors: [CGColor] = Colors.gradientColors,
          size: CGSize = .zero,
          customView: UIView? = nil,
@@ -70,8 +82,6 @@ open class GradientView: UIView {
             self.addSubview(customView)
         }
     }
-    
-    
     
     public override func layoutSubviews() {
         super.layoutSubviews()
@@ -91,13 +101,18 @@ open class GradientView: UIView {
             let shapeLayer = CAShapeLayer()
             shapeLayer.path = path.cgPath
             self.layer.mask = shapeLayer
+        } else {
+            let path = UIBezierPath(roundedRect: self.bounds, byRoundingCorners: self.corners, cornerRadii: CGSize(width: self.cornerRadiusSize, height: self.cornerRadiusSize))
+            let shapeLayer = CAShapeLayer()
+            shapeLayer.path = path.cgPath
+            self.layer.mask = shapeLayer
         }
 
     }
     
     public func refreshLayout() {
         setNeedsDisplay()
-        setNeedsLayout()
+        layoutIfNeeded()
         invalidateIntrinsicContentSize()
     }
     

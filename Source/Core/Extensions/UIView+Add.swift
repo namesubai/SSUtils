@@ -7,6 +7,66 @@
 
 import UIKit
 
+fileprivate class LineAnimationView: View {
+    lazy var animationView: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor.hex(0xffffff)?.withAlphaComponent(0.5)
+        return view
+    }()
+    lazy var animationImageV: UIImageView = {
+        let imageV = UIImageView()
+        imageV.image = self.animationImage
+        return imageV
+    }()
+    var animationSize: CGSize
+    var superSize: CGSize
+    var animationImage: UIImage?
+    var duration: CGFloat
+    init(animationSize: CGSize, superSize: CGSize, duration: CGFloat = 0.8, animationImage: UIImage? = nil)  {
+        self.duration = duration
+        self.animationSize = animationSize
+        self.animationImage = animationImage
+        self.superSize = superSize
+        super.init(frame: .zero)
+    }
+    
+    public required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        
+    }
+    
+    override func make() {
+        super.make()
+        isUserInteractionEnabled = false
+        var animationView = self.animationView
+        if let animationImage = self.animationImage {
+            addSubview(animationImageV)
+            animationView = animationImageV
+        } else {
+            addSubview(animationView)
+        }
+        
+        animationView.ss_size = animationSize
+        pow(animationSize.width / 2, 2)
+        let distance = sqrt(pow(animationSize.width / 2, 2) / 2)
+        animationView.ss_center = CGPoint(x: -distance, y: -distance)
+        animationView.transform = CGAffineTransform.init(rotationAngle: Double.pi / 4)
+//        animationView.ss_center = CGPoint(x: 30, y: 45)
+        let animation = CABasicAnimation(keyPath: "position")
+        animation.duration = duration
+        animation.fromValue = animationView.ss_center
+        animation.toValue = CGPoint(x: superSize.width + distance, y: superSize.height + distance)
+        animation.fillMode = .forwards
+        animation.isRemovedOnCompletion = false
+        animation.repeatCount = Float(Double.infinity)
+        animationView.layer.add(animation, forKey: "LineAnimationView.Animation")
+    }
+}
+
 public class DashPatternView: UIView {
     public lazy var dashPatternLayer: CAShapeLayer = {
         return self.layer as! CAShapeLayer
@@ -92,8 +152,8 @@ public extension UIView {
         }
     }
     
-    func addCorner(size: CGSize = .zero, roundingCorners: UIRectCorner, cornerSize: CGSize, borderColor: CGColor? = nil, borderWidth: CGFloat? = nil) {
-        let frame = size == .zero ? bounds : CGRect(x: 0, y: 0, width: size.width, height: size.height)
+    func addCorner(size: CGSize = .zero, origin: CGPoint = .zero, roundingCorners: UIRectCorner, cornerSize: CGSize, borderColor: CGColor? = nil, borderWidth: CGFloat? = nil) {
+        let frame = size == .zero ? bounds : CGRect(x: origin.x, y: origin.y, width: size.width, height: size.height)
         let path = UIBezierPath(roundedRect: frame, byRoundingCorners: roundingCorners, cornerRadii: cornerSize)
         if borderColor != nil, borderWidth != nil {
             let borderPath = UIBezierPath(roundedRect: CGRect(x: (borderWidth ?? 0) / 2, y:  (borderWidth ?? 0) / 2, width: frame.width - (borderWidth ?? 0), height: frame.height - (borderWidth ?? 0)), byRoundingCorners: roundingCorners, cornerRadii: cornerSize)
@@ -124,16 +184,38 @@ public extension UIView {
         layer.mask = cornerLayer
     }
     
+    func addGradientBorder(size: CGSize = .zero, opacity: Float = 1, colors: [UIColor], startPoint: CGPoint = .zero, endPoint: CGPoint = .init(x: 1, y: 1), borderWidth: CGFloat, cornerRadius: CGFloat) {
+        let frame = CGRect(x: 0, y: 0, width: size.width ?? self.bounds.width, height: size.height ?? self.bounds.height)
+        
+        let gradientLayer = CAGradientLayer()
+        gradientLayer.frame = frame
+        gradientLayer.opacity = opacity
+        gradientLayer.colors = colors.map({ $0.cgColor })
+        gradientLayer.startPoint = startPoint
+        gradientLayer.endPoint = endPoint
+        
+        let maskFrame = CGRect(x: borderWidth / 2, y: borderWidth / 2, width: frame.width - borderWidth, height: frame.height - borderWidth)
+        
+        let maskLayer = CAShapeLayer()
+        maskLayer.lineWidth = borderWidth
+        maskLayer.path = UIBezierPath(roundedRect: maskFrame, cornerRadius: cornerRadius).cgPath
+        maskLayer.fillColor = UIColor.clear.cgColor
+        maskLayer.strokeColor = UIColor.black.cgColor
+        
+        gradientLayer.mask = maskLayer
+        
+        self.layer.addSublayer(gradientLayer)
+    }
 }
 
 
 public extension UIView {
     func startRotate(duration: TimeInterval = 2) {
-        if let _ = layer.animation(forKey: "rotate") {
+        if let _ = layer.animation(forKey: "rotate"), layer.speed == 0 {
             let time = layer.timeOffset
             layer.speed = 1.0
             layer.timeOffset = 0
-            layer.beginTime = 0
+//            layer.beginTime = 0
             let timeSinceTime = layer.convertTime(CACurrentMediaTime(), from: nil) - time
             layer.beginTime = timeSinceTime
         } else {
@@ -148,10 +230,12 @@ public extension UIView {
         }
     }
     
+    func removeRotate() {
+        layer.removeAnimation(forKey: "rotate")
+    }
+    
     func stopRotate(goBack: Bool = false) {
         if let animation = layer.animation(forKey: "rotate") {
-            
-            
             if goBack {
                 DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.25) {
                     let pausedTime = self.layer.convertTime(CACurrentMediaTime(), from: nil)
@@ -164,8 +248,17 @@ public extension UIView {
                 self.layer.timeOffset = pausedTime
             }
         }
-
-        
+    }
+    
+    func rotate(angle: CGFloat) {
+        let animation = CABasicAnimation(keyPath: "transform.rotation.z")
+        animation.fromValue = 0
+        animation.toValue = angle
+        animation.duration = 0
+        animation.repeatCount = 1
+        animation.fillMode = .forwards
+        animation.isRemovedOnCompletion = false
+        layer.add(animation, forKey: "rotateAngle")
     }
 }
 
@@ -192,8 +285,8 @@ public extension UIView {
         /// SwifterSwift: easeInOut animation.
         case easeInOut
     }
-    
-    func startShake(direction: ShakeDirection = .horizontal, duration: TimeInterval = 1, animationType: ShakeAnimationType = .easeOut, isRepeat: Bool = false, completion:(() -> Void)? = nil) {
+    /// 方向移动
+    func startShake(direction: ShakeDirection = .horizontal, duration: TimeInterval = 1, animationType: ShakeAnimationType = .easeInOut, values: [Any] = [-20.0, 20.0, -20.0, 20.0, -10.0, 10.0, -5.0, 5.0, 0.0], isRepeat: Bool = false, completion:(() -> Void)? = nil) {
         CATransaction.begin()
         let animation: CAKeyframeAnimation
         switch direction {
@@ -214,21 +307,23 @@ public extension UIView {
         }
         CATransaction.setCompletionBlock(completion)
         animation.duration = duration
-        animation.values = [-20.0, 20.0, -20.0, 20.0, -10.0, 10.0, -5.0, 5.0, 0.0 ]
+        animation.values = values
+        animation.fillMode = .forwards
+        animation.isRemovedOnCompletion = false
         if isRepeat {
             animation.repeatCount = MAXFLOAT
         }
         layer.add(animation, forKey: "shake")
         CATransaction.commit()
     }
-    
+    // 抖动
     func leftRightShakeRotate(num: Double = 10, duration: TimeInterval = 1, isRepeat: Bool = true) {
         let animation = CAKeyframeAnimation(keyPath: "transform.rotation")
         animation.duration = duration
         animation.values = [-num / 180 * Double.pi, num / 180 * Double.pi, -num / 180 * Double.pi, num / 180 * Double.pi, -num / 180 * Double.pi]
         animation.fillMode = .forwards
         animation.repeatCount = isRepeat ? MAXFLOAT : 1
-        animation.isRemovedOnCompletion = false
+        animation.isRemovedOnCompletion = true
         layer.add(animation, forKey: "shakeRotate")
     }
     
@@ -240,6 +335,16 @@ public extension UIView {
         animation.repeatCount = MAXFLOAT
         animation.isRemovedOnCompletion = false
         layer.add(animation, forKey: "scale")
+    }
+    
+    func addLineAnimate(animateSize: CGSize, animationImage: UIImage? = nil, duration: CGFloat = 0.8, superSize: CGSize, cornerRadius: CGFloat = 0) {
+        let animationView = LineAnimationView(animationSize: animateSize, superSize: superSize, duration: duration, animationImage: animationImage)
+        animationView.layer.masksToBounds = true
+        animationView.layer.cornerRadius = cornerRadius
+        addSubview(animationView)
+        animationView.snp.makeConstraints { make in
+            make.edges.equalTo(0)
+        }
     }
 }
 
@@ -264,7 +369,30 @@ public extension UIStackView {
 }
 
 public extension UIView {
+    
     func screenshotImage(rect: CGRect? = nil) -> UIImage? {
+
+        
+        /// 这个截图方法可以把blur的效果也截图到
+        let frame = rect ?? bounds
+        UIGraphicsBeginImageContextWithOptions(bounds.size, false, 0)
+        
+        drawHierarchy(in: frame, afterScreenUpdates: true)
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+       
+        let cgIImage =  image?.cgImage?.cropping(to: CGRect(origin: CGPoint(x: frame.origin.x * UIScreen.main.scale  , y: frame.origin.y * UIScreen.main.scale), size: CGSize(width: frame.width * UIScreen.main.scale, height: frame.height * UIScreen.main.scale)))
+        var newImage: UIImage?
+        if let cgIImage = cgIImage {
+            newImage = UIImage(cgImage: cgIImage, scale: UIScreen.main.scale, orientation: UIImage.Orientation.up)
+        }
+        
+//        (self.view.viewWithTag(90) as? UIImageView)?.image = newImage
+        
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+    /// 有毛玻璃的裁剪不了
+    func screenshotImageIgnoreBlur(rect: CGRect? = nil) -> UIImage? {
         UIGraphicsBeginImageContextWithOptions(layer.frame.size, false, UIScreen.main.scale)
         defer {
             UIGraphicsEndImageContext()
@@ -287,8 +415,7 @@ public extension UIView {
         return UIGraphicsGetImageFromCurrentImageContext()
     }
     
-    func openglSnapshotImage() -> UIImage?
-    {
+    func openglSnapshotImage() -> UIImage? {
         defer {
             UIGraphicsEndImageContext()
         }
@@ -300,6 +427,12 @@ public extension UIView {
         return UIGraphicsGetImageFromCurrentImageContext()
     }
 
+    func asImage() -> UIImage {
+        let renderer = UIGraphicsImageRenderer(bounds: bounds)
+        return renderer.image { context in
+            layer.render(in: context.cgContext)
+        }
+    }
 }
 
 public extension UIScrollView {
@@ -359,10 +492,13 @@ public extension UIView {
 private var RedPointViewKey: Int8 = 0
 public extension UIView {
     
-    @discardableResult func showRedPointView(point: CGPoint, size: CGSize = CGSize(width: 7, height: 7)) -> UIView {
+    @discardableResult func showRedPointView(point: CGPoint, size: CGSize = CGSize(width: 7, height: 7), color: UIColor? = nil) -> UIView {
         addSubview(redPointView)
         redPointView.ss_size = size
         redPointView.ss_center = point
+        if let color = color {
+            redPointView.backgroundColor = color
+        }
         redPointView.layer.cornerRadius = size.height / 2
         return redPointView
     }

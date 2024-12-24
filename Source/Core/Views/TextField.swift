@@ -47,62 +47,84 @@ open class TextField: UITextField {
             }
         }
     }
+    
+    open override var placeholder: String? {
+        didSet {
+            if let placeholder = placeholder {
+                if let placeholderColor = placeholderColor  {
+                    let attr = NSMutableAttributedString(string: placeholder)
+                    attr.addAttribute(.foregroundColor, value: placeholderColor, range: NSMakeRange(0, placeholder.count))
+                    attributedPlaceholder = attr
+                }
+            }
+        }
+    }
+        
+    deinit {
+        logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
+    }
+    
+    private func handleText() {
+        if let selectedRange = self.markedTextRange {
+            let position = self.position(from: selectedRange.start, offset: 0)
+            guard position == nil else { return }
+        }
+        var txt = self.text
+        if let cannotShowFirstWords = self.cannotShowFirstWords, var _text = text , _text.count > 0 {
+            for c in _text {
+                if String(c) == cannotShowFirstWords {
+                    _text.removeFirst()
+                } else {
+                    break
+                }
+            }
+            txt = _text
+        }
+        if let customStringType = self.customStringType, var _text = text , _text.count > 0  {
+            for c in _text {
+                if !customStringType.vaild(string: String(c)) {
+                    _text = _text.replacingOccurrences(of: String(c), with: "")
+                }
+            }
+            txt = _text
+        }
+        
+        if var _text = text, self.wordLength > 0, _text.count > self.wordLength {
+            if self.isTrimPrefix {
+                txt = String(_text.suffix(self.wordLength))
+            }else {
+                txt = String(_text.prefix(self.wordLength))
+            }
+        }
+        
+        if let maxNum = self.maxNum, Int(self.text ?? "0") ?? 0 > maxNum {
+            txt = "\(maxNum)"
+        }
+        
+        if text != txt {
+            self.text = txt
+        }
+        
+    }
+    
+    
     public override init(frame: CGRect) {
         super.init(frame: frame)
-        rx.realText.subscribe(onNext: {
-            [weak self]
-            txt in guard let self = self else { return }
-            if let selectedRange = self.markedTextRange {
-                let position = self.position(from: selectedRange.start, offset: 0)
-                guard position == nil else { return }
-            }
-            var text = txt
-            if let cannotShowFirstWords = self.cannotShowFirstWords, var _text = text , _text.count > 0 {
-                for c in _text {
-                    if String(c) == cannotShowFirstWords {
-                        _text.removeFirst()
-                    } else {
-                        break
-                    }
-                }
-                text = _text
-            }
-            if let customStringType = self.customStringType, var _text = text , _text.count > 0  {
-                for c in _text {
-                    if !customStringType.vaild(string: String(c)) {
-                        _text = _text.replacingOccurrences(of: String(c), with: "")
-                    }
-                }
-                text = _text
-            }
-            
-            if var _text = text, self.wordLength > 0, _text.count > self.wordLength {
-                if self.isTrimPrefix {
-                    text = String(_text.suffix(self.wordLength))
-                }else {
-                    text = String(_text.prefix(self.wordLength))
-                }
-            }
-            
-            if let maxNum = self.maxNum, Int(self.text ?? "0") ?? 0 > maxNum {
-                self.text = "\(maxNum)"
-            }
-            
-            if text != txt {
-                self.text = text
-            }
-            
+        rx.realText.distinctUntilChanged().subscribe(with: self, onNext: {
+            (self, _) in
+            self.handleText()
         }).disposed(by: rx.disposeBag)
+       
         
         NotificationCenter.default.rx.notification(UITextField.textDidEndEditingNotification).subscribe(with: self, onNext: {
             (self, _) in
-            if let defaultText = self.defaultText, self.text?.isLength != true {
+            if let defaultText = self.defaultText, self.text?.isLength != true, self.text != defaultText {
                 self.text = defaultText
             }
             if let minNum = self.minNum, Int(self.text ?? "0") ?? 0 < minNum {
                 self.text = "\(minNum)"
                 if let minNumToast = self.minNumToast {
-                    App.keyWindow?.showTextHUD(minNumToast)
+                    App.mainWindow?.showTextHUD(minNumToast)
                 }
             }
         }).disposed(by: rx.disposeBag)

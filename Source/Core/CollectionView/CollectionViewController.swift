@@ -56,17 +56,85 @@ open class CollectionViewController: ViewController {
         }
         return self.collectionView
     }
-
+    
+    public private(set) lazy var customNavView: CustomNavView = {
+        let view = CustomNavView()
+        Observable.merge(view.hideButton.rx.tap.mapToVoid(),  view.showButton.rx.tap.mapToVoid()).subscribe(with: self, onNext: {
+            (self, _) in
+            self.backAction()
+        }).disposed(by: disposeBag)
+        return view
+    }()
+    
+    public var autoShowAndHideNavWhenScroll: Bool = false
+    
+    public var isShowCustomNavView: Bool = false {
+        didSet {
+            if !isShowCustomNavView {
+                if self.customNavView.superview != nil {
+                    self.customNavView.removeFromSuperview()
+                }
+            } else {
+                self.view.addSubview(self.customNavView)
+                self.customNavView.snp.makeConstraints { make in
+                    make.left.top.right.equalTo(0)
+                    make.height.equalTo(self.navigationBarAndStatusBarHeight)
+                }
+                self.customNavView.backgroundColor = self.customNavView.showColor.withAlphaComponent(0)
+                if autoShowAndHideNavWhenScroll {
+                    
+                    collectionView.rx.contentOffset.subscribe(onNext: {
+                        [weak self] contentOffset in guard let self = self else { return }
+                        if contentOffset.y >= self.navigationBarAndStatusBarHeight {
+                            self.customNavView.backgroundColor = self.customNavView.showColor
+                            self.customNavView.label.alpha = 1
+                            self.statusBarStyle = self.customNavView.showStatusBarStyle
+                            self.customNavView.hideButton.alpha = 0
+                            self.customNavView.showButton.alpha = 1
+                        } else {
+                            var alpha = contentOffset.y / self.navigationBarAndStatusBarHeight
+                            self.customNavView.backgroundColor = self.customNavView.showColor.withAlphaComponent(alpha)
+                            alpha = max(0, alpha)
+                            self.customNavView.label.alpha = alpha
+                            self.customNavView.hideButton.alpha = 1 - alpha
+                            self.customNavView.showButton.alpha = alpha
+                            self.statusBarStyle = alpha == 0 ? self.customNavView.hideStatusBarStyle : self.customNavView.showStatusBarStyle
+                        }
+                        
+                    }).disposed(by: self.customNavView.rx.disposeBag)
+                }
+                
+            }
+            
+        }
+    }
+    
+    public override init(viewModel: ViewModel? = nil, navigator: Navigator? = nil) {
+        super.init(viewModel: viewModel, navigator: navigator)
+        let layout = UICollectionViewFlowLayout()
+        collectionView = CollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.alwaysBounceVertical = true
+        collectionView.backgroundColor = Colors.backgroud
+    }
+    
+    open override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if isShowCustomNavView {
+            self.view.bringSubviewToFront(customNavView)
+        }
+    }
+    
+    required public init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     open override func viewDidLoad() {
         super.viewDidLoad()
     }
     
     open override func make() {
         super.make()
-        let layout = UICollectionViewFlowLayout()
-        collectionView = CollectionView(frame: .zero, collectionViewLayout: layout)
-        collectionView.alwaysBounceVertical = true
-        collectionView.backgroundColor = Colors.backgroud
+        
         view.addSubview(collectionView)
         collectionView.snp.makeConstraints { (make) in
             make.edges.equalToSuperview()
@@ -101,7 +169,7 @@ open class CollectionViewController: ViewController {
 //        }).disposed(by: disposeBag)
         
         
-        notNetworkRetryTrigger.bind(to: collectionView.headerRefreshTrigger).disposed(by: disposeBag)
+//        notNetworkRetryTrigger.bind(to: collectionView.headerRefreshTrigger).disposed(by: disposeBag)
         viewModel.error.asObservable().observe(on: MainScheduler.instance).subscribe(onNext: {
             [weak self] (error) in
             guard let self = self else {return}
@@ -113,6 +181,7 @@ open class CollectionViewController: ViewController {
                     //                    print(self.collectionView.numberOfSections)
                     if self.collectionView.numberOfSections == 0 {
                         self.emptyOnView?.showNetworkErrorEmptyView {
+                            [weak self] in guard let self = self else {return}
                             self.notNetworkRetryTrigger.onNext(())
                         }
                         self.emptyOnView?.notNetworkEmptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
@@ -123,6 +192,7 @@ open class CollectionViewController: ViewController {
                         })
                         if row == 0 {
                             self.emptyOnView?.showNetworkErrorEmptyView {
+                                [weak self] in guard let self = self else {return}
                                 self.notNetworkRetryTrigger.onNext(())
                             }
                             self.emptyOnView?.notNetworkEmptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
@@ -146,7 +216,7 @@ open class CollectionViewController: ViewController {
             self.collectionView.showFooterRefresh(isShow: isShow, customLoadingView: self.footerCustomLoadingView)
         }).disposed(by: disposeBag)
         
-        collectionView.rx.reloadData.subscribe(onNext: { [weak self] _ in
+        collectionView.reloadDataTrigger.subscribe(onNext: { [weak self] _ in
             guard let self = self else { return }
             var row = [Int](0..<self.collectionView.numberOfSections).reduce(0, {
                 result, index in
@@ -162,15 +232,17 @@ open class CollectionViewController: ViewController {
             event in
             guard let self = self else { return }
             self.emptyOnView?.hideNetworkErrorEmptyView()
+            self.emptyOnView?.hideEmptyView()
         }).disposed(by: disposeBag)
         
-        Observable.combineLatest(self.collectionView.rx.reloadData.catchAndReturn(()), Observable.merge(viewModel.emptyNoDataError.asObservable().map({($0, true)}), viewModel.noData.map({($0, false)}))).observe(on: MainScheduler.instance).subscribe(onNext: {
+        Observable.combineLatest(self.collectionView.reloadDataTrigger.catchAndReturn(()), Observable.merge(viewModel.emptyNoDataError.asObservable().map({($0, true)}), viewModel.noData.map({($0, false)}))).observe(on: MainScheduler.instance).subscribe(onNext: {
             [weak self]
             data
             in
             let (noData, isError) = data.1
             guard let self = self else {return}
             if let error = noData?.error as? MoyaError, error.errorCode == 6, noData != nil  {
+                self.emptyOnView?.hideEmptyView()
                 return
             }
             self.emptyOnView?.hideNetworkErrorEmptyView()
@@ -204,14 +276,13 @@ open class CollectionViewController: ViewController {
             //            self.collectionView.isHidden = (noData != nil)
         }).disposed(by: disposeBag)
         
-        notNetworkRetryTrigger.subscribe(onNext: {
-            [weak self]
-            in
-            guard let self = self else {return}
-            self.emptyOnView?.hideEmptyView()
-            self.collectionView.isHidden = false
-            self.beginHeaderRefresh()
-        }).disposed(by: disposeBag)
+//        notNetworkRetryTrigger.subscribe(onNext: {
+//            [weak self]
+//            in
+//            guard let self = self else {return}
+//            self.emptyOnView?.hideEmptyView()
+//            self.collectionView.isHidden = false
+//        }).disposed(by: disposeBag)
         
         if App.isAutoShowFooterNoMoreData {
             collectionView.rx.observe(CGSize.self, "contentSize").subscribe(with: self, onNext: {
@@ -252,6 +323,7 @@ open class CollectionViewController: ViewController {
 
 
 public extension Reactive where Base: UICollectionView {
+    /// 方法监听必须在kvo监听前面，不然会抛出异常
     public var reloadData: ControlEvent<Void> {
         let source = self.methodInvoked(#selector(UIKit.UICollectionView.reloadData as ((UICollectionView) -> () -> Void))).mapToVoid()
         return ControlEvent(events: source)

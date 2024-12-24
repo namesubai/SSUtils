@@ -54,6 +54,6 @@ extension Reactive where Base: UIButton {
 extension Reactive where Base: UITextField {
     /// Reactive wrapper for `text` property.
     public var realText: Observable<String?> {
-        Observable.merge(text.asObservable(), base.rx.observe(String.self, "text"))
+        Observable.merge(text.asObservable(), base.rx.observe(\.text))
     }
 }

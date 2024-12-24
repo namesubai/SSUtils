@@ -66,7 +66,7 @@ public extension UILabel {
         }
         var attrString = NSMutableAttributedString(string: text)
         if let attributedText = attributedText {
-            let attrString = NSMutableAttributedString(attributedString: attributedText)
+            attrString = NSMutableAttributedString(attributedString: attributedText)
         }
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineSpacing = lineSpacing

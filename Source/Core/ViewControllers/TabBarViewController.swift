@@ -160,6 +160,7 @@ open class TabBarViewController: UITabBarController,Navigatale {
                     self.isAutoShowNoNetWrokEmptyView  {
                     self.toastOnView?.hideEmptyView()
                     let emptyView = self.toastOnView?.showNetworkErrorEmptyView(){
+                        [weak self] in guard let self = self else {return}
                         self.notNetworkRetryTrigger.onNext(())
                     }
                     emptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
@@ -196,6 +197,7 @@ open class TabBarViewController: UITabBarController,Navigatale {
                                                     buttonTitleFont: noData.buttonTitleFont,
                                                     buttonTitleColor: noData.buttonTitleColor,
                                                     buttonCustomView: noData.customButtonView) {
+                        [weak self] in guard let self = self else {return}
                         self.emptyTrigger.onNext(())
                     }
                     emptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
@@ -294,9 +296,9 @@ public extension Reactive where Base: TabBarViewController {
     var cannotClickLoading: Binder<Bool> {
         return Binder(self.base) { viewController, attr in
             if attr {
-                (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear)
+                (viewController.customToastOnView ?? App.mainWindow)?.showLoadingTextHUD(maskType: .clear)
             }else{
-                (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.hideHUD()
+                (viewController.customToastOnView ?? App.mainWindow)?.hideHUD()
             }
         }
     }
@@ -317,7 +319,7 @@ public extension Reactive where Base: TabBarViewController {
             let isCanNotTouch = attr.2
             if isShow {
                 if isCanNotTouch {
-                    (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear, message)
+                    (viewController.customToastOnView ?? App.mainWindow)?.showLoadingTextHUD(maskType: .clear, message)
                 } else {
                     viewController.toastOnView?.showLoadingTextHUD(message)
                 }
@@ -325,7 +327,7 @@ public extension Reactive where Base: TabBarViewController {
             } else{
                 
                 if isCanNotTouch {
-                    (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.hideHUD()
+                    (viewController.customToastOnView ?? App.mainWindow)?.hideHUD()
                 } else {
                     viewController.toastOnView?.hideHUD()
                 }

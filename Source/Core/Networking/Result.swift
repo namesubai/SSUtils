@@ -30,7 +30,7 @@ public enum ServiceErrorCode: Int {
 
 }
 
-public enum ServiceError: Swift.Error{
+public enum ServiceError: Swift.Error {
         
     case serverError(response: RootResult)
     case parseResultError

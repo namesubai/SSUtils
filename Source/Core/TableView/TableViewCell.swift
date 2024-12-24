@@ -114,6 +114,9 @@ public extension UITableViewCell {
     }
     
     private func findTableView(view: UIView?) -> UITableView? {
+        if view == nil {
+            return nil
+        }
         if view?.superview?.isKind(of: UITableView.self) == true {
             return view?.superview as? UITableView
         } else {

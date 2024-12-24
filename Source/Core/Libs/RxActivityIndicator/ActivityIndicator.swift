@@ -47,12 +47,17 @@ public class ActivityIndicator: SharedSequenceConvertibleType {
             .distinctUntilChanged()
     }
 
-    fileprivate func trackActivityOfObservable<Source: ObservableConvertibleType>(_ source: Source) -> Observable<Source.Element> {
+    fileprivate func trackActivityOfObservable<Source: ObservableConvertibleType>(_ source: Source, isHideOnNextCallback: Bool) -> Observable<Source.Element> {
         return Observable.using({ () -> ActivityToken<Source.Element> in
             self.increment()
             return ActivityToken(source: source.asObservable(), disposeAction: self.decrement)
         }, observableFactory: { value in
             return value.asObservable()
+        }).do(onNext: {
+            _ in
+            if isHideOnNextCallback {
+                self.hide()
+            }
         })
     }
 
@@ -64,20 +69,35 @@ public class ActivityIndicator: SharedSequenceConvertibleType {
 
     private func decrement() {
         _lock.lock()
-        _relay.accept(_relay.value - 1)
+        _relay.accept(max(0, _relay.value - 1))
         _lock.unlock()
     }
 
     public func asSharedSequence() -> SharedSequence<SharingStrategy, Element> {
         return _loading
     }
+    
+    public func hide() {
+        decrement()
+    }
 }
 
 extension ObservableConvertibleType {
-    public func trackActivity(_ activityIndicator: ActivityIndicator) -> Observable<Element> {
-        return activityIndicator.trackActivityOfObservable(self)
+    /// isHideOnNext：监听onNext直接隐藏。如：在使用接口带缓存的时候，loading 在缓存和网络数据回调的时候隐藏,而不是默认dispose才隐藏
+    public func trackActivity(_ activityIndicator: ActivityIndicator, isHideOnNextCallback: Bool = false, needShowLoading: Bool = true) -> Observable<Element> {
+        if needShowLoading {
+            return activityIndicator.trackActivityOfObservable(self, isHideOnNextCallback: isHideOnNextCallback)
+        } else {
+            return self.asObservable()
+        }
     }
 }
+
+public struct ActivityCacheData<Element> {
+    var element: Element
+    var isCache: Bool
+}
+
 
 
 

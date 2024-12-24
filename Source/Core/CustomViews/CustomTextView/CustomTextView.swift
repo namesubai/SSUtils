@@ -67,7 +67,7 @@ open class CustomTextView: View, EventTrigger {
     }
     
     public var isFirstWordCannotEmpty = false
-
+    public var placeholderLabStartMargin: CGFloat = 5
     public override init(frame: CGRect) {
         super.init(frame: frame)
         
@@ -92,17 +92,31 @@ open class CustomTextView: View, EventTrigger {
         }
         contentChange.bind(to: placeholderLab.rx.isHidden).disposed(by: rx.disposeBag)
         
-        textView.rx.value.map {
+        textView.rx.value.distinctUntilChanged().map {
             [weak self]
-            (value) -> String in
-            guard let self = self else { return "" }
+            (value) -> String? in
+            guard let self = self else { return nil }
+            if let selectedRange = self.textView.markedTextRange {
+                let position = self.textView.position(from: selectedRange.start, offset: 0)
+                guard position == nil else {
+                    return  nil
+                }
+            }
+            
             let text = value ?? "0"
             return "\(text.count)/\(self.maxLength)"
-        }.bind(to: lengthLab.rx.text).disposed(by: rx.disposeBag)
-        textView.rx.value.subscribe(onNext: {
+        }.filter({$0 != nil}).bind(to: lengthLab.rx.text).disposed(by: rx.disposeBag)
+        textView.rx.value.distinctUntilChanged().subscribe(onNext: {
             [weak self]
             text in
             guard let self = self else { return }
+            if let selectedRange = self.textView.markedTextRange {
+                let position = self.textView.position(from: selectedRange.start, offset: 0)
+                guard position == nil else { return }
+            }
+            if (text ?? "").count > self.maxLength {
+                self.textView.text = String(text?.prefix(self.maxLength) ?? "")
+            }
             if self.isFirstWordCannotEmpty, var text = text, text.count > 0 {
                 for c in text {
                     if c == " " {
@@ -119,7 +133,7 @@ open class CustomTextView: View, EventTrigger {
     
     public override func layoutSubviews() {
         super.layoutSubviews()
-        placeholderLab.frame = CGRect(x: padding.left + 5, y: padding.top, width: self.bounds.width - padding.left - padding.right - 5, height: 0)
+        placeholderLab.frame = CGRect(x: padding.left + placeholderLabStartMargin, y: padding.top, width: self.bounds.width - padding.left - padding.right - placeholderLabStartMargin, height: 0)
         placeholderLab.sizeToFit()
 //        lengthLab.sizeToFit()
 //        lengthLab.frame = CGRect(x: self.bounds.width - 10 - lengthLab.ss_w, y: self.bounds.height - 6.5 - lengthLab.ss_h, width: lengthLab.ss_w, height: lengthLab.ss_h)
@@ -146,6 +160,7 @@ open class CustomTextView: View, EventTrigger {
 extension CustomTextView: UITextViewDelegate {
     
     public func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        
         var string = textView.text! as NSString
         string = string.replacingCharacters(in: range, with: text) as NSString
         if text == "\n", textView.returnKeyType != .default  {
@@ -154,7 +169,10 @@ extension CustomTextView: UITextViewDelegate {
             }
             return false
         }
-
+        if let selectedRange = textView.markedTextRange {
+            let position = textView.position(from: selectedRange.start, offset: 0)
+            guard position == nil else { return  true}
+        }
         if string.length > maxLength {
             textView.text = string.substring(to: maxLength)
             return false

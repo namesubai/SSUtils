@@ -26,6 +26,8 @@ open class ViewController: UIViewController,Navigatale {
     public let notNetworkRetryTrigger = PublishSubject<Void>()
 
     open var statusBarStyle: UIStatusBarStyle = .default { didSet { self.setNeedsStatusBarAppearanceUpdate() } }
+    open var statusBarHidden: Bool = false { didSet { self.setNeedsStatusBarAppearanceUpdate() } }
+
     open var navigationBarColor: UIColor? = Colors.navBarBackgroud
     public let goBackCompletion = PublishSubject<Void>()
     open var isHideNavigationBar = false
@@ -121,8 +123,10 @@ open class ViewController: UIViewController,Navigatale {
     open override var preferredStatusBarStyle: UIStatusBarStyle {
         statusBarStyle
     }
-    
-    public var backButon: UIButton? {
+    open override var prefersStatusBarHidden: Bool {
+        statusBarHidden
+    }
+    public var backButon: CustomButton? {
         self.backButton
     }
     
@@ -137,6 +141,8 @@ open class ViewController: UIViewController,Navigatale {
     public var voidAndNotNetworkAndOnlyErrorEmptyTrigger:Observable<Void> {
         Observable.merge(Observable.just(()), notNetworkRetryTrigger, emptyErrorTrigger)
     }
+    
+    public var popFinish: (() -> Void)? = nil
 
     public init(viewModel: ViewModel? = nil, navigator: Navigator? = nil) {
         self.viewModel = viewModel
@@ -144,8 +150,8 @@ open class ViewController: UIViewController,Navigatale {
         super.init(nibName: nil, bundle: nil)
     }
     
-    private var backButton: Button = {
-        let backButton = Button(type: .system)
+    private var backButton: CustomButton = {
+        let backButton = CustomButton(type: .system)
         return backButton
     }()
     
@@ -160,7 +166,7 @@ open class ViewController: UIViewController,Navigatale {
         }
         view.backgroundColor = Colors.backgroud
         
-        let backImage: UIImage? = App.navBackImage ?? .image("back")
+        let backImage: UIImage? = App.navBackImage ?? ssImage("back")
         if (!isNavigationRootViewController && backImage != nil && isAutoShowAndHideNavBackButton) || !isAutoShowAndHideNavBackButton {
             self.backImage = backImage
         }
@@ -273,7 +279,7 @@ open class ViewController: UIViewController,Navigatale {
         
 
     }
-        
+            
     open override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         self.navigationController?.view.endEditing(true)
@@ -328,15 +334,15 @@ open class ViewController: UIViewController,Navigatale {
         if self.presentingViewController != nil && self.navigationController?.viewControllers.count == 1 {
             isDimiss = true
             if let navigator = self.navigator {
-                navigator.dimiss(sender: self)
+                navigator.dimiss(sender: self, completion: popFinish)
             } else {
-                self.dismiss(animated: true, completion: nil)
+                self.dismiss(animated: true, completion: popFinish)
             }
         } else {
             if let navigator = self.navigator {
-                navigator.pop(sender: self)
+                navigator.pop(sender: self, completion: popFinish)
             } else {
-                self.navigationController?.popViewController()
+                self.navigationController?.popViewController(animated: true, popFinish)
             }
         }
     }
@@ -344,26 +350,36 @@ open class ViewController: UIViewController,Navigatale {
     func refreshBackButton() {
         if let image = backImage?.withRenderingMode(.alwaysOriginal) {
             backButton.setImage(image, for: .normal)
-            backButton.contentSize = CGSize(width: 30.wScale, height: self.navigationBarHeight)
+            /// 用App.navBarHeight，self.navBarHeight有时候为0
+            backButton.contentSize = CGSize(width: 40, height: App.navBarHeight)
             backButton.translatesAutoresizingMaskIntoConstraints = false
+            backButton.imageOriginAutoX = 0
+            backButton.contentType = .leftImageRigthText(space: 0, autoSize: false)
             let leftMargin = (backButton.contentSize.width - image.size.width) / 2
-            backButton.overrideAlignmentRectInsets = UIEdgeInsets(top: 0, left: leftMargin + 4.wScale, bottom: 0, right: 0)
-            
-            if image != nil {
-                backButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -leftMargin, bottom: 0, right: 0)
-            }
+//            backButton.overrideAlignmentRectInsets = UIEdgeInsets(top: 0, left: leftMargin + 4.wScale, bottom: 0, right: 0)
+//
+//            if image != nil {
+//                backButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -leftMargin, bottom: 0, right: 0)
+//            }
             let backButtonItem = UIBarButtonItem(customView: backButton)
+            /// 只能左边加个space，默认的左边距离，系统是不同分辨率默认不一样，加space是8开始，然后8 + 8 = 16
             let negativeSeperator = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
-            negativeSeperator.width = 8.wScale
+            negativeSeperator.width = 8
             if otherleftBarButtonItems.count > 0 {
                 self.navigationItem.leftBarButtonItems = [negativeSeperator, backButtonItem] + otherleftBarButtonItems
             } else {
                 self.navigationItem.leftBarButtonItems = [negativeSeperator, backButtonItem]
             }
           
+        } else {
+            self.navigationItem.backBarButtonItem = nil
+            self.navigationItem.leftBarButtonItem = nil
+            self.navigationItem.leftBarButtonItems = []
+            self.navigationItem.hidesBackButton = true
         }
     }
-   
+    
+    
     open func make() {
         
     }
@@ -421,6 +437,7 @@ open class ViewController: UIViewController,Navigatale {
                     !self.isHasContent {
                     self.emptyOnView?.hideEmptyView()
                     let emptyView = self.emptyOnView?.showNetworkErrorEmptyView(){
+                        [weak self] in guard let self = self else {return}
                         self.notNetworkRetryTrigger.onNext(())
                     }
                     emptyView?.centerOffset = self.emptyCenterOffset ?? App.emptyCenterOffset
@@ -433,9 +450,14 @@ open class ViewController: UIViewController,Navigatale {
                 }
             }
             else {
-                let error = error as NSError
-                let message = error.userInfo[NSLocalizedDescriptionKey] as? String
-                self.textToastOnView?.showTextHUD(message, tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
+                if error.localizedDescription.isLength {
+                    self.textToastOnView?.showTextHUD(error.localizedDescription, tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
+                } else {
+                    let error = error as? NSError
+                    let message = error?.userInfo[NSLocalizedDescriptionKey] as? String
+                    self.textToastOnView?.showTextHUD(message, tag: kOnlyShowOneHudTag)?.layer.zPosition = 100
+                }
+               
             }
            
         }).disposed(by: disposeBag)
@@ -457,7 +479,7 @@ open class ViewController: UIViewController,Navigatale {
                         viewModel.haveContents.accept(false)
                     }
                     self.emptyOnView?.hideEmptyView()
-                    let emptyView = self.toastOnView?.showEmptyView(image: noData.image,
+                    let emptyView = self.emptyOnView?.showEmptyView(image: noData.image,
                                                     title: noData.title,
                                                     titleFont: noData.titleFont,
                                                     titleColor: noData.titleColor,
@@ -501,11 +523,27 @@ open class ViewController: UIViewController,Navigatale {
         }
         return nil
     }
-    
-   
-    
+        
     deinit {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
+    }
+    
+    //MARK: 自定义导航栏
+    public func showCustomNavigationBar(makeConstraints: ((_ bar: UIView) -> Void)? = nil) -> UIView {
+        isHideNavigationBar = true
+        let navBar = UIView()
+        navBar.backgroundColor = navigationBarColor
+        view.addSubview(navBar)
+        if let makeConstraints = makeConstraints {
+            makeConstraints(navBar)
+        } else {
+            navBar.snp.makeConstraints { make in
+                make.top.equalToSuperview().inset(statusBarHeight)
+                make.leading.trailing.equalToSuperview()
+                make.height.equalTo(navigationBarHeight)
+            }
+        }
+        return navBar
     }
 }
 
@@ -514,9 +552,9 @@ public extension Reactive where Base: ViewController {
     var cannotClickLoading: Binder<Bool> {
         return Binder(self.base) { viewController, attr in
             if attr {
-                (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear)
-            }else{
-                (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.hideHUD()
+                (viewController.customToastOnView ?? App.mainWindow)?.showLoadingTextHUD(maskType: .clear, tag: 13222)
+            } else {
+                (viewController.customToastOnView ?? App.mainWindow)?.hideHUD(tag: 13222)
             }
         }
     }
@@ -525,7 +563,7 @@ public extension Reactive where Base: ViewController {
         return Binder(self.base) { viewController, attr in
             if attr {
                 viewController.toastOnView?.showLoadingTextHUD()
-            }else{
+            } else {
                 viewController.toastOnView?.hideHUD()
             }
         }
@@ -537,17 +575,17 @@ public extension Reactive where Base: ViewController {
             let isCanNotTouch = attr.2
             if isShow {
                 if isCanNotTouch {
-                    viewController.currentCustomToastView = (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear, message)
+                    viewController.currentCustomToastView = (viewController.customToastOnView ?? App.mainWindow)?.showLoadingTextHUD(maskType: .clear, message,  tag: 13223)
                 } else {
-                    viewController.currentCustomToastView = viewController.toastOnView?.showLoadingTextHUD(message)
+                    viewController.currentCustomToastView = viewController.toastOnView?.showLoadingTextHUD(message, tag: 13223)
                 }
                 
             } else{
                 
                 if isCanNotTouch {
-                    (viewController.customToastOnView ?? UIApplication.shared.keyWindow)?.hideHUD()
+                    (viewController.customToastOnView ?? App.mainWindow)?.hideHUD(tag: 13223)
                 } else {
-                    viewController.toastOnView?.hideHUD()
+                    viewController.toastOnView?.hideHUD(tag: 13223)
                 }
             }
         }

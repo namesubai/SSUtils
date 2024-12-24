@@ -8,6 +8,12 @@
 import Foundation
 import WebKit
 
+public class CustomWebView: WKWebView {
+    deinit {
+        logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
+    }
+}
+
 public struct WebData {
     public var title: String?
     public var url: String?
@@ -21,10 +27,10 @@ open class WebViewController: ViewController {
         return view
     }()
     
-    public lazy var webView: WKWebView = {
+    public lazy var webView: CustomWebView = {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
-        let view = WKWebView(frame: .zero, configuration: config)
+        let view = CustomWebView(frame: .zero, configuration: config)
         view.navigationDelegate = self
         view.uiDelegate = self
         return view
@@ -114,7 +120,7 @@ open class WebViewController: ViewController {
                 }
             }
            
-        })
+        }).disposed(by: disposeBag)
         
         webView.rx.observe(Double.self, "estimatedProgress").subscribe(onNext: {
             [weak self]

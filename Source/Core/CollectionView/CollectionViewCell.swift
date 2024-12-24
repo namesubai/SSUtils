@@ -19,6 +19,10 @@ open class CollectionViewCell: UICollectionViewCell {
         make()
     }
     
+    required public init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     open func make() {
         
     }
@@ -27,9 +31,7 @@ open class CollectionViewCell: UICollectionViewCell {
         disposeBag = DisposeBag()
     }
     
-    required public init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+
     
     deinit {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
@@ -40,6 +42,25 @@ public extension Reactive where Base: CollectionViewCell {
     var isCellSelected: Binder<Bool> {
         return Binder(self.base) { view, attr in
             view.isCellSelected = attr
+        }
+    }
+}
+
+
+public extension UICollectionViewCell {
+    
+    var superCollectionView: UICollectionView? {
+        return findCollectionView(view: self)
+    }
+    
+    private func findCollectionView(view: UIView?) -> UICollectionView? {
+        if view == nil {
+            return nil
+        }
+        if view?.superview?.isKind(of: UICollectionView.self) == true {
+            return view?.superview as? UICollectionView
+        } else {
+            return findCollectionView(view: view?.superview)
         }
     }
 }

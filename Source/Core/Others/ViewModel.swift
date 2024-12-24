@@ -82,14 +82,14 @@ open class ViewModel: NSObject {
     public var noMore = BehaviorRelay<Bool>(value: false)
     public var showFooterRefresh = BehaviorRelay<Bool>(value: false)
     public var error = ErrorTracker()
-    public var emptyError = ErrorTracker()
+//    public var emptyError = ErrorTracker()
     public var emptyNoDataError = EmptyTracker()
 
-    public var haveContents = PublishRelay<Bool>()
-    public var noData = PublishRelay<NoData?>()
-    public var noNetwork = PublishRelay<Bool>()
+    public var haveContents = BehaviorRelay<Bool>(value: false)
+    public var noData = ReplaySubject<NoData?>.create(bufferSize: 1) /// 有预加载都情况，bindmodel后执行了
+    public var noNetwork = ReplaySubject<Bool>.create(bufferSize: 1)
     public var showHud = PublishSubject<String?>()
-    public var showCustomLoading = PublishRelay<Bool>()
+    public var showCustomLoading = ReplaySubject<Bool>.create(bufferSize: 1)
     public var changeCustomLoadingText = PublishSubject<String>()
     deinit {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")

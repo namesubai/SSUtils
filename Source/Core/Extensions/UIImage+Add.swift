@@ -146,6 +146,7 @@ public extension UIImage {
 
 
 public extension UIImage {
+    
     func colorImage(color: UIColor) -> UIImage? {
         UIGraphicsBeginImageContextWithOptions(size, false, scale)
         let rect = CGRect(x: 0, y: 0, width: size.width, height: size.height)
@@ -157,6 +158,29 @@ public extension UIImage {
         return newImage
     }
     
+    /// 渐变图片（基于frame）
+    static func gradient(size: CGSize,
+                         startColor: UIColor, endColor: UIColor,
+                         startPoint: CGPoint, endPoint: CGPoint) -> UIImage {
+        
+        let colorspace = CGColorSpaceCreateDeviceRGB()
+        let gradientLocations: [CGFloat] = [0.0, 1.0]
+        let colors: CFArray = [startColor.cgColor, endColor.cgColor] as CFArray
+        let gradient = CGGradient(colorsSpace: colorspace, colors: colors, locations: gradientLocations)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = UIScreen.main.scale
+        
+        let render = UIGraphicsImageRenderer(bounds: .init(origin: .zero, size: size), format: format)
+        
+        let image = render.image { context in
+            context.cgContext.drawLinearGradient(gradient!,
+                                                 start: CGPoint(x: size.width * startPoint.x, y: size.height * startPoint.y),
+                                                 end: CGPoint(x: size.width * endPoint.x, y: size.height * endPoint.y),
+                                                 options: .drawsAfterEndLocation)
+        }
+        
+        return image
+    }
 }
 
 public extension UIImage {
@@ -264,6 +288,24 @@ public extension UIImage {
     }
 }
 
+public extension Array where Element: UIImage {
+    
+    /// 多张图片水平拼接，高度以第一张为准，向上对齐
+    func mergedHorizontally() -> UIImage? {
+        let images: [UIImage] = self
+        if images.isEmpty { return nil }
+        let height: CGFloat = images[0].size.height
+        let width: CGFloat = images.reduce(0) { $0 + $1.size.width }
+        UIGraphicsBeginImageContext(.init(width: width, height: height))
+        defer { UIGraphicsEndImageContext() }
+        var x: CGFloat = 0
+        images.forEach { image in
+            image.draw(in: .init(origin: .init(x: x, y: 0), size: image.size))
+            x += image.size.width
+        }
+        return UIGraphicsGetImageFromCurrentImageContext()
+    }
+}
 
 public extension UIImage {
     /// 垂直合并图片
@@ -286,6 +328,24 @@ public extension UIImage {
         return resultImag
     }
     
+    /// 上下合成
+    static func mergeImages(_ images: [UIImage]) -> UIImage? {
+        guard images.count > 0 else {
+            return nil
+        }
+        
+        let firstImag = images.first!
+        let contentSize = firstImag.size.scale(firstImag.scale)
+        
+        UIGraphicsBeginImageContext(CGSize(width: contentSize.width, height: contentSize.height))
+        images.forEach { image in
+            let size = image.size.scale(image.scale)
+            image.draw(in: CGRect(x: (contentSize.width - size.width) / 2, y: (contentSize.height - size.height) / 2, width: size.width, height: size.height))
+        }
+        let resultImag = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return resultImag
+    }
 }
 
 public extension UIImage {
@@ -314,7 +374,7 @@ public extension UIImage {
 
 public extension UIImage {
     // MARK: - UIImage+Resize
-
+    
     func scaleImageWithAspectToWidth(toWidth:CGFloat) -> UIImage? {
         let oldWidth:CGFloat = size.width
         let scaleFactor:CGFloat = toWidth / oldWidth
@@ -377,6 +437,15 @@ public extension UIImage {
         let newImage = UIGraphicsGetImageFromCurrentImageContext()
         UIGraphicsEndImageContext()
         return newImage
+    }
+    
+    func scaled(ratio: CGFloat, opaque: Bool = false) -> UIImage? {
+        let targetSize = CGSize(width: size.width * ratio, height: size.height * ratio)
+        UIGraphicsBeginImageContextWithOptions(targetSize, opaque, scale)
+        draw(in: CGRect(origin: .zero, size: targetSize))
+        let new = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return new
     }
 }
 
@@ -483,12 +552,12 @@ extension UIImage {
         var currentImage: UIImage?
         if let compressImageData = try? ImageCompress.compressImageData(imageData, limitDataSize: kb * 1024) {
             currentImage = UIImage(data: compressImageData)
-            logDebug("压缩后图片大小：\(compressImageData.count.sizeFromByte())")
+            logDebug("压缩后图片大小：\(compressImageData.count.sizeFromByte()), \(currentImage?.size ?? .zero)")
         }
         if let clipSize = clipSize {
             if let compressImageData = try? ImageCompress.compressImageData(imageData, limitLongWidth: clipSize.width)  {
                 currentImage = UIImage(data: compressImageData)
-                logDebug("压缩后图片大小：\(compressImageData.count.sizeFromByte())")
+                logDebug("加上size,压缩后图片大小：\(compressImageData.count.sizeFromByte()), \(currentImage?.size ?? .zero)")
             }
         }
         return currentImage ?? self
@@ -604,4 +673,20 @@ extension UIImage {
     
     
 
+}
+
+extension UIImage {
+    public static func getVideoFirstFrameImage(url: String) -> UIImage? {
+        guard let Url = URL(string: url) else { return nil }
+        let avAsset = AVURLAsset(url: Url)
+        let imageGenerator = AVAssetImageGenerator(asset: avAsset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        
+        do {
+            let image = try UIImage(cgImage: imageGenerator.copyCGImage(at: CMTime(seconds: 0, preferredTimescale: 1), actualTime: nil))
+            return image
+        } catch let e as NSError {
+            return nil
+        }
+    }
 }

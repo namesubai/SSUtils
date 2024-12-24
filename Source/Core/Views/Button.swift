@@ -18,7 +18,13 @@ open class Button: UIButton {
     public var autoCornerRadious: Bool = false
     public var overrideAlignmentRectInsets: UIEdgeInsets?
     private var isShowingRedCacheKey: String?
-    public var contentSize: CGSize = .zero
+    public var contentSize: CGSize = .zero {
+        didSet {
+            setNeedsDisplay()
+            layoutIfNeeded()
+            invalidateIntrinsicContentSize()
+        }
+    }
     open override var isSelected: Bool {
         didSet{
             if isSelected {

@@ -21,6 +21,29 @@ public extension UIScrollView {
         }
     }
     
+    public func scrollToLeft(animation: Bool) {
+        DispatchQueue.main.async {
+            [weak self]
+            in
+            guard let self = self else { return }
+            let offsetX = -self.space.left
+            self.setContentOffset(CGPoint(x: offsetX, y: 0), animated: animation)
+
+        }
+    }
+    
+    public func scrollToRight(animation: Bool) {
+        DispatchQueue.main.async {
+            [weak self]
+            in
+            guard let self = self else { return }
+            let offsetX = self.contentSize.width - self.bounds.width + self.space.right
+            if offsetX > 0 {
+                self.setContentOffset(CGPoint(x: offsetX, y: 0), animated: animation)
+            }
+        }
+    }
+    
     public func scrollToBottom(animation: Bool) {
         DispatchQueue.main.async {
             [weak self]
@@ -43,6 +66,21 @@ public extension UIScrollView {
     
     var isTop: Bool {
         if self.contentOffset.y == -self.space.top {
+            return true
+        }
+        return false
+    }
+    
+    var isLeft: Bool {
+        if self.contentOffset.x == -self.space.left {
+            return true
+        }
+        return false
+    }
+    
+    var isRight: Bool {
+        let boottomOffset = self.contentSize.width - self.bounds.width + self.space.right
+        if abs(boottomOffset - self.contentOffset.x) < 3 {
             return true
         }
         return false

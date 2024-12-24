@@ -6,10 +6,34 @@
 //
 
 import Foundation
+#if DEBUG
 import CocoaLumberjack
-import SSAlertSwift
+#endif
+
 import UIKit
 import AudioToolbox
+
+/// 动态插入字体
+var registerRecord = [String:Bool]()
+
+public func registerFont(url: URL?) {
+    
+    if url != nil {
+        var fontName = url?.lastPathComponent.replacingOccurrences(of: ".ttf", with: "")
+        fontName = fontName?.replacingOccurrences(of: ".otf", with: "")
+        if let fontName = fontName {
+            if registerRecord[fontName] ?? false == false {
+                let isSuccess = CTFontManagerRegisterFontsForURL(url as! CFURL, .process, nil)
+                registerRecord[fontName] = isSuccess
+            }
+        }
+    }
+}
+
+public enum CommonError: Error {
+    case `default`
+    case msg(msg: String?)
+}
 
 public struct Colors {
     public static var backgroud: UIColor = UIColor.hex(0xF5F6F7)
@@ -51,6 +75,7 @@ public struct App {
         return ""
     }()
     
+    @available(*, deprecated, message: "use 'AppName' instead")
     public static var name: String = {
         if let name = Bundle.main.infoDictionary?["CFBundleDisplayName"] {
             return name as! String
@@ -95,7 +120,7 @@ public struct App {
     }
     
     public static func feedbackGenerateImpact(style: UIImpactFeedbackGenerator.FeedbackStyle = .light)  {
-        let feedback = UIImpactFeedbackGenerator(style: .light)
+        let feedback = UIImpactFeedbackGenerator(style: .medium)
         feedback.prepare()
         feedback.impactOccurred()
     }
@@ -120,16 +145,37 @@ public struct App {
             return UIApplication.shared.keyWindow
         }
     }
+    public static var mainWindow: UIWindow? {
+        if let delegate = UIApplication.shared.delegate, delegate.responds(to: #selector(getter: UIApplicationDelegate.window)) {
+            return delegate.window ?? nil
+        }
+        let windows = UIApplication.shared.windows
+        if windows.count == 1 {
+            return windows.first
+        } else {
+            return windows.first(where: {$0.windowLevel == .normal})
+        }
+    }
     
-    public static let width =  UIScreen.main.bounds.width
-    public static let height =  UIScreen.main.bounds.height
+    public static let size = UIScreen.main.bounds.size
+    public static let width =  size.width
+    public static let height =  size.height
+    
     public static let systemVersion = UIDevice.current.systemVersion
-    public static let statusBarHeight = UIApplication.shared.statusBarFrame.size.height
+    public static var statusBarHeight: CGFloat {
+        if UIApplication.shared.isStatusBarHidden == true {
+          return safeAreaInsets.top
+        } else {
+            return keyWindow?.windowScene?.statusBarManager?.statusBarFrame.height ?? UIApplication.shared.statusBarFrame.height
+        }
+        
+    }
     public static let navBarHeight: CGFloat = 44
-    public static let navAndStatusBarHeight = statusBarHeight +  navBarHeight
+    public static let navAndStatusBarHeight = statusBarHeight + navBarHeight
     public static let widthScale = (width / 375.0)
     public static let heigtScale = (height / 812.0)
     public static let fontScale = min(App.width, App.height) / 375.0
+    public static var safeAreaTop: CGFloat { safeAreaInsets.top }
     public static var safeAreaBottom: CGFloat { safeAreaInsets.bottom }
     public static var pixel: CGFloat { 1.0 / UIScreen.main.scale }
     public static var minPixel: CGFloat { max(1.0 / UIScreen.main.scale, 0.5) }
@@ -152,7 +198,7 @@ public struct App {
     public static var emptyTitleColor: UIColor? = nil
     public static var emptyButtonTitleFont: UIFont? = nil
     public static var emptyButtonTitleColor: UIColor? = nil
-    public static var defaulAppStoreID: String = "1606154284"
+    public static var defaulAppStoreID: String = ""
     public static var emptyNotNetworkButtonCustomView: (() -> UIView?)? = nil
     public static var emptyCenterOffset: CGPoint = .zero
     public static var emptyTitleTopMargin: CGFloat? = nil
@@ -160,8 +206,35 @@ public struct App {
     public static var emptyBgColor: UIColor? = nil
 
     var serviceErrorHandle:(() -> Void)?
+    
     public mutating func serviceErrorHandle(block:@escaping () -> Void) {
         self.serviceErrorHandle = block
+    }
+    
+    /// 是否支持锁屏组件？
+    public static var isSupportLockScreenWidget: Bool {
+        if #available(iOS 16.0, *) {
+            return true
+        } else {
+            return false
+        }
+    }
+    
+    /// 是否支持展示灵动岛入口？
+    public static var isNeeShowDynamicIsLand: Bool {
+        if isiPhoneXScreen {
+            return true
+        } else {
+            return false
+        }
+    }
+    
+    public static var appStoreLink: String {
+        "itms-apps://itunes.apple.com/app/id\(defaulAppStoreID)"
+    }
+    
+    public static var appStoreURL: URL {
+        .init(string: appStoreLink)!
     }
 }
 
@@ -270,6 +343,7 @@ public struct Paths {
     public static let Documents = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
     public static let Library = NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true)[0]
     public static let Tmp = NSTemporaryDirectory()
+    public static let caches = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0]
 }
 
 
@@ -347,23 +421,112 @@ public extension CGSize {
     }
 }
 
+#if DEBUG
+//MARK: 日志
+func setupDLog() {
+    addLog(log: .normalLog)
+    addLog(log: .networkLog)
+}
+
+func addLog(log: CustomLog) {
+    let logger = CustomLogger()
+    logger.logFormatter = CustomLogFormatter(name: log.style.name)
+    log.add(logger)
+    let fileLogger: DDFileLogger = DDFileLogger() // File Logger
+    fileLogger.rollingFrequency = TimeInterval(60 * 60 * 24)  // 24 hours
+    fileLogger.logFileManager.maximumNumberOfLogFiles = 7
+    log.add(fileLogger)
+}
+
+extension CustomLog {
+    static let normalLog = CustomLog()
+    static let networkLog = CustomLog(style: .network)
+}
+
+class CustomLog: DDLog {
+    enum Style {
+        case normal
+        case network
+        var name: String {
+            switch self {
+                case .normal: return ""
+                case .network: return "Network"
+            }
+        }
+    }
+    var style: Style
+    init(style: Style = .normal) {
+        self.style = style
+        super.init()
+    }
+}
+
+let networkLog = DDLog()
+
+class CustomLogger: NSObject, DDLogger {
+    func log(message logMessage: DDLogMessage) {
+       let msg = logFormatter?.format(message: logMessage) ?? logMessage.message
+       print(msg)
+    }
+    
+    var logFormatter: DDLogFormatter?
+    
+}
+
+class CustomLogFormatter: NSObject, DDLogFormatter {
+    private lazy var dateFormatter = DateFormatter()
+    var name: String?
+    init(name: String? = nil) {
+        self.name = name
+        super.init()
+        dateFormatter.dateFormat = "HH:mm:ss:SSS"
+    }
+    
+    func format(message logMessage: DDLogMessage) -> String? {
+        var level = ""
+        switch logMessage.flag {
+            case .error:
+                level = "Error"
+            case .warning:
+                level = "Warning"
+            case .info:
+                level = "Info"
+            case .debug:
+                level = "Debug"
+            case .verbose:
+                level = "Verbose"
+            default:
+                break
+        }
+        let time = dateFormatter.string(from: logMessage.timestamp)
+        let msg = logMessage.message
+        let name = self.name?.isLength == true ? "[\(self.name!)]" : ""
+        return "[\(time)][SSUtil]\(name)[\(level)] \(msg)"
+    }
+    
+}
+
+#endif
 
 public func logDebug(_ message: String) {
     #if DEBUG
-    DDLogDebug(message)
+    DDLogDebug(message, ddlog: CustomLog.normalLog)
     #endif
+}
+
+public func logNetWorkDebug(_ message: String) {
+#if DEBUG
+    DDLogDebug(message, ddlog: CustomLog.networkLog)
+#endif
 }
 
 class Class {
     
 }
-extension UIImage {
-    public static func image(_ name: String) -> UIImage? {
-        let image = UIImage(named: name, in: Bundle(for: Class.self), compatibleWith: nil)
-        return image
-    }
+public func ssImage(_ name: String) -> UIImage? {
+    let image = UIImage(named: name, in: Bundle(for: Class.self), compatibleWith: nil)
+    return image
 }
-
 
 
 

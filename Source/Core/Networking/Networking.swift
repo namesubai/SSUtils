@@ -108,10 +108,12 @@ extension ObservableType where Element: RootResult {
         return flatMap { result -> Observable<ObjectResult<T>> in
             var objectResult: ObjectResult<T>? = nil
             
-            
+            logNetWorkDebug("数据模型转换：\(type)--start")
             if let jsonString = result.needMapJsonString, let object = try?  Mapper<T>().map(JSONString:jsonString) {
                 objectResult = ObjectResult(result: result, object: object)
             }
+            logNetWorkDebug("数据模型转换：\(type)--end")
+
             return  Observable<ObjectResult<T>>.create {
                 (observer) -> Disposable in
                 if objectResult == nil {
@@ -131,12 +133,12 @@ extension ObservableType where Element: RootResult {
     
     func mapArray<T: BaseMappable>(_ type: T.Type) -> Observable<ObjectArrayResult<T>> {
         return flatMap { result -> Observable<ObjectArrayResult<T>> in
-            
+            logNetWorkDebug("数据模型转换：\(type)--start")
             var objectResult: ObjectArrayResult<T>? = nil
             if let jsonString = result.needMapJsonString, let object = try? Mapper<T>().mapArray(JSONString: jsonString) {
                 objectResult = ObjectArrayResult(result: result, object: object)
             }
-            
+            logNetWorkDebug("数据模型转换：\(type)--end")
             return  Observable<ObjectArrayResult<T>>.create {
                 (observer) -> Disposable in
                 if objectResult == nil {
@@ -207,28 +209,33 @@ public extension ObservableType where Element: CacheResult {
                 return request.asObservable()
             }).asSingle()
         }
-        
+        logNetWorkDebug("开始请求接口：\(target.method.rawValue):\(target.path)")
         return Single<Result>.create { (single) -> Disposable in
             let dispose = lastRequest
                 .subscribe { (response) in
                     #if DEBUG
-                    print("接口 \(target.method)：\(response.request?.url?.absoluteString ?? "")")
-                    print("头部信息:",target.headers ?? [String: String]())
+                    logNetWorkDebug("请求接口返回数据： \(target.method.rawValue)：\(response.request?.url?.absoluteString ?? "")")
+                    logNetWorkDebug("头部信息:\(target.headers ?? [String: String]())")
                     switch target.task {
                     case .requestParameters(let params, _):
-                        print("参数:", params)
+                        print("参数:\(params)")
                     case .uploadCompositeMultipart(let formDatas, let params):
-                        print("\(formDatas.count)个文件", "参数:",params)
+                        print("\(formDatas.count)个文件, 参数:\(params)")
                     case .uploadMultipart(let formDatas):
-                        print("上传表单:", formDatas)
+                        print("上传表单:\(formDatas)")
                     default:
                         break
                     }
-//                    if let result = try? response.mapJSON() {
-//                        logDebug("网络数据：\(String(describing: result))")
-//                    }else
-//                    if let result = try? response.mapString() {
-//                        logDebug("网络数据：\(String(describing: result))")
+                    if let result = try? response.mapString() {
+                        let json = JSON(parseJSON: result)
+                        if json.null != nil {
+                            logNetWorkDebug("网络数据：\(result ?? "")")
+                        } else {
+                            logNetWorkDebug("网络数据：\(json.rawString() ?? "")")
+                        }
+                    }
+//                    else if let result = try? response.mapString() {
+//                        logNetWorkDebug("网络数据：\(String(describing: result))")
 //                    }
                     #endif
                     if let data = try? response.mapObject(resultType) {
@@ -340,6 +347,13 @@ open class ApiProvider<NetworkTarget>: NetworkType where NetworkTarget: NetworkT
         return provider.request(target, resultType: result)
     }
     
+    public func removeCache(_ target: NetworkTarget) {
+        if  let path = target.cachePath, let cache = cache {
+            if cache.containsObject(forKey: path) {
+                cache.removeObject(forKey: path)
+            }
+        }
+    }
     
     public init() {
         
@@ -398,7 +412,7 @@ public extension ApiProvider {
                     network.onNext(object)
                     guard let cache = self.cache, let jsonString = map.toJSONString(), let path = target.cachePath else { return }
                     cache.setObject(jsonString as NSString, forKey: path) {
-                        logDebug("\(path):缓存成功")
+                        logNetWorkDebug("\(path):缓存成功")
                     }
                     
                     network.onCompleted()
@@ -450,7 +464,7 @@ public extension ApiProvider {
                     network.onNext(object)
                     if let cache = self.cache, let jsonString = mapArray.toJSONString(), let path = target.cachePath, !mapArray.isEmpty  {
                         cache.setObject(jsonString as NSString, forKey: path) {
-                            logDebug("\(path):缓存成功")
+                            logNetWorkDebug("\(path):缓存成功")
                         }
                     }
                    

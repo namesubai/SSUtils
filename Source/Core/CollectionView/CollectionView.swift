@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import RxSwift
 
 open class CollectionView: UICollectionView {
     
@@ -28,20 +29,18 @@ open class CollectionView: UICollectionView {
     
     public lazy var isHideBgView: Bool = true {
         didSet {
+            insertSubview(bgView, at: 0)
             bgView.isHidden = isHideBgView
         }
     }
     
     public var bgViewContentEdgeInset: UIEdgeInsets?
-    
+    public let reloadDataTrigger = PublishSubject<Void>()
+
     override init(frame: CGRect,
                   collectionViewLayout layout: UICollectionViewLayout) {
         super.init(frame: frame, collectionViewLayout: layout)
         backgroundColor = Colors.backgroud
-        keyboardDismissMode = .onDrag
-        bgView.isHidden = true
-        addSubview(bgView)
-
     }
     
     required public init?(coder: NSCoder) {
@@ -56,6 +55,7 @@ open class CollectionView: UICollectionView {
     */
     open override func reloadData() {
         super.reloadData()
+        reloadDataTrigger.onNext(())
     }
     
     open override func layoutSubviews() {
@@ -64,6 +64,10 @@ open class CollectionView: UICollectionView {
             bgView.frame = CGRect(x: bgViewContentEdgeInset.left, y: bgViewContentEdgeInset.top, width: contentSize.width - bgViewContentEdgeInset.left - bgViewContentEdgeInset.right, height: contentSize.height - bgViewContentEdgeInset.top - bgViewContentEdgeInset.bottom)
         }
         
+    }
+    
+    deinit {
+        logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
     }
 
 }

@@ -54,7 +54,7 @@ open class DefaultTableViewCell: TableViewCell {
     
     public lazy var defaultArrowImgV: UIImageView = {
         let imageV = UIImageView()
-        imageV.image = .image("arrow_right")
+        imageV.image = ssImage("arrow_right")
         imageV.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         return imageV
     }()

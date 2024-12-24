@@ -266,7 +266,7 @@ open class BubblePopupView: UIView {
     }
     
     func show(sourceView: UIView, sourceRect: CGRect? = nil, distance: CGFloat = 10.wScale, width: CGFloat = 100.wScale) {
-        guard let window = App.keyWindow else { return }
+        guard let window = App.mainWindow else { return }
         guard let sourceFrameOnWindow = sourceView.superview?.convert(sourceRect ?? sourceView.frame, to: window) else { return }
         let maskView = UIButton()
         window.addSubview(maskView)

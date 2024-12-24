@@ -6,7 +6,7 @@
 //
 
 import UIKit
-import SSAlertSwift
+
 import SnapKit
 import RxSwift
 import RxCocoa
@@ -76,7 +76,7 @@ class CustomCollectionView: UICollectionView {
 
 
 class  ImageBrowseAnimation: NSObject, SSAlertAnimation {
-    private var animationView: SSAlertView? = nil
+    private weak var animationView: SSAlertView? = nil
 
     func animationDuration() -> TimeInterval {
         0.35
@@ -135,7 +135,7 @@ public struct ImageBrowse {
     public var thumbImageUrl: String?
     public var largeImage: UIImage?
     public var largeImageUrl: String?
-    public var fromImageV: UIImageView?
+    public weak var fromImageV: UIImageView?
     public var downLoadThumImage: ((UIImage) -> Void)? = nil
     public init() {
         
@@ -224,11 +224,8 @@ class ImageBrowseLayout: UICollectionViewFlowLayout, UIGestureRecognizerDelegate
     var activityVC: UIActivityViewController?
     weak var currentCell: ImageBrowseCell?
  
-    lazy var longPress: UILongPressGestureRecognizer = {
-        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(longPress(pan:)))
-        longPress.minimumPressDuration = 0.3
-        longPress.allowableMovement = 60
-        longPress.numberOfTouchesRequired = 1
+    lazy var longPress: UIPanGestureRecognizer = {
+        let longPress = UIPanGestureRecognizer(target: self, action: #selector(longPress(pan:)))
         return longPress
     }()
     
@@ -247,8 +244,10 @@ class ImageBrowseLayout: UICollectionViewFlowLayout, UIGestureRecognizerDelegate
         minimumInteritemSpacing = 0
         minimumLineSpacing = 15.wScale
         itemSize = CGSize(width: App.width, height: App.height)
+        sectionInset = UIEdgeInsets(top: 0, left: 15.wScale / 2, bottom: 0, right: 15.wScale / 2)
         collectionView.addGestureRecognizer(longPress)
         collectionView.addGestureRecognizer(shareLongPress)
+        collectionView.panGestureRecognizer.require(toFail: longPress)
         longPress.delegate = self
 //        longPress.require(toFail: collectionView.panGestureRecognizer)
     }
@@ -271,7 +270,7 @@ class ImageBrowseLayout: UICollectionViewFlowLayout, UIGestureRecognizerDelegate
                     activityVC!.completionWithItemsHandler = {
                         type, completed, _, error in
                         if completed  {
-                            UIApplication.shared.keyWindow?.showTextHUD("Success")
+                            App.mainWindow?.showTextHUD("Success")
                         }
                     }
                 }
@@ -287,12 +286,13 @@ class ImageBrowseLayout: UICollectionViewFlowLayout, UIGestureRecognizerDelegate
         guard let collectionView = collectionView else {
             return
         }
-        let point = pan.location(in: pan.view)
+        let point = pan.location(in: pan.view?.superview)
+        let collectionPoint = pan.location(in: pan.view)
         let translationPoint = CGPoint(x: point.x - beginPoint.x, y: point.y - beginPoint.y)
         switch pan.state {
         case .began:
             beginPoint = point
-            if let indexPath = collectionView.indexPathForItem(at: point) {
+            if let indexPath = collectionView.indexPathForItem(at: collectionPoint) {
                 let cell = collectionView.cellForItem(at: indexPath)
                 currentCell = cell as? ImageBrowseCell
                 currentCell?.beginDrag()
@@ -364,17 +364,35 @@ class ImageBrowseLayout: UICollectionViewFlowLayout, UIGestureRecognizerDelegate
         }
     }
     
-
+//
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        if otherGestureRecognizer == shareLongPress {
+//        if otherGestureRecognizer == shareLongPress {
+//            return true
+//        }
+        if let point = (gestureRecognizer as? UIPanGestureRecognizer)?.translation(in: gestureRecognizer.view), point.y > 0 {
+            return true
+        }
+       return false
+    }
+    
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if let point = (gestureRecognizer as? UIPanGestureRecognizer)?.translation(in: gestureRecognizer.view), point.y > 0 {
             return true
         }
         return false
     }
     
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive press: UIPress) -> Bool {
-        return true
-    }
+//    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+//        if otherGestureRecognizer == collectionView?.panGestureRecognizer {
+//            return true
+//        }
+//        return false
+//    }
+    
+    
+//    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive press: UIPress) -> Bool {
+//        return true
+//    }
   
 }
 
@@ -529,6 +547,7 @@ class ImageBrowseCell: UICollectionViewCell, UIScrollViewDelegate, EventTrigger 
     
     func setInitialFrame(size: CGSize?, isHidden: Bool = false) {
         guard let size = size else { return }
+        scrollView.zoomScale = scrollView.minimumZoomScale
         if size.height > App.height && !isHidden {
             self.scrollView.contentSize = CGSize(width: App.width, height: size.height)
         } else {
@@ -583,7 +602,7 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
         collectionView.delegate = self
         collectionView.dataSource = self
         collectionView.alwaysBounceHorizontal = false
-//        collectionView.isPagingEnabled = true
+        collectionView.isPagingEnabled = true
         return collectionView
     }()
     
@@ -638,9 +657,10 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
         bgMaskView.snp.makeConstraints { make in
             make.edges.equalTo(0)
         }
-        
         collectionView.snp.makeConstraints { make in
-            make.edges.equalTo(0)
+            make.leading.equalTo(-15.wScale / 2)
+            make.top.bottom.equalTo(0)
+            make.width.equalTo(self.ss_w + 15.wScale)
         }
         pageControl.snp.makeConstraints { make in
             make.bottom.equalTo(-(App.safeAreaInsets.bottom + 30.wScale))
@@ -675,10 +695,11 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
     }
     
     public func showAnimation() {
-        
-        let imgeV = getCell()?.imageV
+        let cell = getCell()
+        let imgeV = cell?.imageV
         if let orginalImageFrame = orginalImageFrame {
             imgeV?.frame = orginalImageFrame
+            cell?.layoutIfNeeded()
         }
         
     }
@@ -687,13 +708,13 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
         collectionView.reloadData()
         collectionView.layoutIfNeeded()
         refreshStartData(isStartAnimation: true)
-      
     }
     
     func refreshStartData(isStartAnimation: Bool = false) {
         guard  let cell = getCell() else { return }
         let imgeV = cell.imageV
-        orginalImageFrame = imgeV.frame
+        let imgeVOrigin = CGPoint(x: max(0, (App.width - imgeV.ss_size.width) / 2), y: max(0, (App.height - imgeV.ss_size.height) / 2))
+        orginalImageFrame = CGRect(origin: imgeVOrigin, size: imgeV.ss_size)
         orginalCellFrame = cell.frame
         let browse = self.browses[currentIndex]
         if let fromImageV = browse.fromImageV  {
@@ -809,35 +830,40 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
         return browseCellVMs.count
     }
 
-    public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
-        var point = scrollView.contentOffset
-        point.x = CGFloat(currentIndex) * (scrollView.frame.width + 15.wScale)
-        scrollView.setContentOffset(point, animated: true)
-    }
-
+//    public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
+//        var point = scrollView.contentOffset
+//        point.x = CGFloat(currentIndex) * (scrollView.frame.width + 15.wScale)
+//        scrollView.setContentOffset(point, animated: true)
+//    }
+//
     public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate {
-            var point = scrollView.contentOffset
-            point.x = CGFloat(currentIndex) * (scrollView.frame.width + 15.wScale)
-            scrollView.setContentOffset(point, animated: true)
-        }
-    }
-    
-    public func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
-        var point = targetContentOffset.pointee
-        if point.x >= scrollView.contentOffset.x {
-            let currentPointX = CGFloat(currentIndex + 1) * (scrollView.frame.width + 15.wScale)
-            point.x = min(currentPointX, point.x)
-        }
-        
-        if point.x <= scrollView.contentOffset.x, currentIndex > 0 {
-            let currentPointX = CGFloat(currentIndex - 1) * (scrollView.frame.width + 15.wScale)
-            point.x = max(currentPointX, point.x)
-        }
+        var point = scrollView.contentOffset
         let pageIndex = Int((point.x / scrollView.frame.width).rounded())
         currentIndex = pageIndex
-        
     }
+    
+    public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        var point = scrollView.contentOffset
+        let pageIndex = Int((point.x / scrollView.frame.width).rounded())
+        currentIndex = pageIndex
+    }
+    
+//
+//    public func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+//        var point = targetContentOffset.pointee
+//        if point.x >= scrollView.contentOffset.x {
+//            let currentPointX = CGFloat(currentIndex + 1) * (scrollView.frame.width + 15.wScale)
+//            point.x = min(currentPointX, point.x)
+//        }
+//
+//        if point.x <= scrollView.contentOffset.x, currentIndex > 0 {
+//            let currentPointX = CGFloat(currentIndex - 1) * (scrollView.frame.width + 15.wScale)
+//            point.x = max(currentPointX, point.x)
+//        }
+//        let pageIndex = Int((point.x / scrollView.frame.width).rounded())
+//        currentIndex = pageIndex
+//
+//    }
     
     
     required public init?(coder: NSCoder) {
@@ -855,7 +881,7 @@ open class ImageBrowseView: UIView, EventTrigger, UICollectionViewDelegate, UICo
 public extension ImageBrowseView {
     
     static func browse(_ browes: [ImageBrowse], currentIndex: Int, downloadCompletion:  ((String, UIImage?) -> Void)? = nil) {
-        if let currentVC = UIApplication.shared.keyWindow?.rootViewController {
+        if let currentVC = App.mainWindow?.rootViewController {
             let browseView = ImageBrowseView(browses: browes, currentIndex: currentIndex, downloadCompletion: downloadCompletion)
             let alertView = SSAlertView(customView: browseView, fromViewController: currentVC, animation: ImageBrowseAnimation(), navigationControllerClass: NavigationViewController.self, maskType: .none, canPanDimiss: false)
             alertView.isHideStatusBar = true

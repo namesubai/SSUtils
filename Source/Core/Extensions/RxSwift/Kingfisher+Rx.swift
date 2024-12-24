@@ -51,9 +51,7 @@ public extension Reactive where Base: UIImageView {
             guard let url = url else {  return }
             imageView.kf.setImage(with: URL(string: url),
                                   placeholder: placeholderImage,
-                                  options: options,
-                                  progressBlock: nil,
-                                  completionHandler: { (result) in })
+                                  options: options)
  
         })
     }
@@ -62,21 +60,21 @@ public extension Reactive where Base: UIImageView {
         return self.imageUrl(withPlaceholder: UIImage(color: UIColor.random, size: CGSize(width: 200, height: 200)))
     }
     
-    public func imageUrl(withPlaceholder placeholderImage: UIImage? = nil, options: KingfisherOptionsInfo? = [], resize size: CGSize? = nil) -> Binder<String?> {
+    public func imageUrl(withPlaceholder placeholderImage: UIImage? = nil, options: KingfisherOptionsInfo? = [], resize size: CGSize? = nil, resizeMode: UIImageView.ResizeMode = .lfit, showLoading: Bool = false) -> Binder<String?> {
         return Binder(self.base, binding: { (imageView, url) in
             guard var url = url else {  return }
             var options = options
             if let size = size {
                 let scale = UIScreen.main.scale
-                url += "?x-oss-process=image/resize,w_\(Int(round(size.width * scale))),h_\(Int(round(size.height * scale))),m_lfit"
+                url += "?x-oss-process=image/resize,w_\(Int(round(size.width * scale))),h_\(Int(round(size.height * scale))),m_\(resizeMode.rawValue)"
                 options?.append(.scaleFactor(scale))
+            }
+            if showLoading {
+                imageView.kf.indicatorType = .activity
             }
             imageView.kf.setImage(with: URL(string: url),
                                   placeholder: placeholderImage,
-                                  options: options,
-                                  progressBlock: nil,
-                                  completionHandler: { (result) in })
- 
+                                  options: options)
         })
     }
 
@@ -84,9 +82,7 @@ public extension Reactive where Base: UIImageView {
         return Binder(self.base, binding: { (imageView, url) in
             imageView.kf.setImage(with: url,
                                   placeholder: placeholderImage,
-                                  options: options,
-                                  progressBlock: nil,
-                                  completionHandler: { (result) in })
+                                  options: options)
         })
     }
 }

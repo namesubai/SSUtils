@@ -8,20 +8,21 @@
 import UIKit
 
 open class CustomButton: Button {
-   public enum ContentType {
-        case leftImageRigthText(space: CGFloat = 6, autoSize: Bool)
+    
+    public enum ContentType {
+        case leftImageRigthText(space: CGFloat = 6, autoSize: Bool = false)
         case topImageBottomText(space: CGFloat = 6, autoSize: Bool = false)
-        case leftTitleRigthImage(space: CGFloat = 6, autoSize: Bool)
+        case leftTitleRigthImage(space: CGFloat = 6, autoSize: Bool = false)
         case topTextBottomImage(space: CGFloat = 6, autoSize: Bool = false)
-       var space: CGFloat {
-           switch self {
-           case .leftImageRigthText(let space, _): return space
-           case .topImageBottomText(let space, _): return space
-           case .leftTitleRigthImage(let space, _): return space
-           case .topTextBottomImage(let space, _): return space
-
-           }
-       }
+        
+        var space: CGFloat {
+            switch self {
+            case .leftImageRigthText(let space, _): return space
+            case .topImageBottomText(let space, _): return space
+            case .leftTitleRigthImage(let space, _): return space
+            case .topTextBottomImage(let space, _): return space
+            }
+        }
     }
     
     public enum Aligentment {
@@ -31,37 +32,45 @@ open class CustomButton: Button {
     public var imageOrigin: CGPoint? {
         didSet {
             setNeedsDisplay()
-            setNeedsLayout()
+            layoutIfNeeded()
         }
     }
     public var titleLabelOrigin: CGPoint? {
         didSet {
             setNeedsDisplay()
-            setNeedsLayout()
+            layoutIfNeeded()
         }
     }
     /// tileLabel 会自动跟随
     public var imageOriginAutoX: CGFloat? = nil
-
+    /// imageView 会自动跟随
+    public var titleOriginAutoX: CGFloat? = nil
     
-    public var titleAligentment: Aligentment = .center {
+    public var titleAligentment: Aligentment? = nil {
         didSet {
             setNeedsDisplay()
-            setNeedsLayout()
+            layoutIfNeeded()
         }
     }
     
+    open override var contentEdgeInsets: UIEdgeInsets {
+        didSet {
+            setNeedsDisplay()
+            layoutIfNeeded()
+        }
+    }
     
     public var customImageSize: CGSize = .zero
     public var maxWidth: CGFloat? = nil
     public var minHeight: CGFloat? = nil
     public var isDefaultEnabledChang: Bool = true
-
     open override var isEnabled: Bool {
         didSet {
             if isDefaultEnabledChang {
                 self.alpha = isEnabled ? 1 : 0.5
             }
+            setNeedsDisplay()
+            layoutIfNeeded()
         }
     }
     
@@ -77,7 +86,7 @@ open class CustomButton: Button {
         didSet {
             guard let _ = contentType else { return }
             setNeedsDisplay()
-            setNeedsLayout()
+            layoutIfNeeded()
         }
     }
     
@@ -358,31 +367,48 @@ open class CustomButton: Button {
         
         if let imageOrigin = imageOrigin , var imageV = imageView {
             imageV.ss_origin = CGPoint(x: imageOrigin.x + contentEdgeInsets.left, y: imageOrigin.y + contentEdgeInsets.top)
-            if titleAligentment == .center {
-                titleLabel?.ss_center = CGPoint(x: ss_w / 2, y: ss_h / 2)
-            }
+            
         }
     
         if let titleLabelOrigin = titleLabelOrigin, var titleLabel = titleLabel {
             titleLabel.ss_origin = CGPoint(x: titleLabelOrigin.x + contentEdgeInsets.left, y: titleLabelOrigin.y + contentEdgeInsets.top)
         }
         
+        if let titleOriginAutoX = titleOriginAutoX, var titleLabel = titleLabel {
+            titleLabel.ss_x = titleOriginAutoX
+            imageView?.ss_x = titleLabel.ss_maxX + contentType.space
+        }
+        
         if let imageOriginAutoX = imageOriginAutoX, var imageV = imageView {
             imageV.ss_x = imageOriginAutoX
             titleLabel?.ss_x = imageV.ss_maxX + contentType.space
         }
+        if let titleLabel = titleLabel, let titleAligentment = self.titleAligentment {
+            if titleAligentment == .center {
+                titleLabel.ss_center = CGPoint(x: ss_w / 2, y: ss_h / 2)
+            }
+            
+            if titleAligentment == .left {
+                titleLabel.ss_x = 0
+            }
+            
+            if titleAligentment == .right {
+                titleLabel.ss_x = ss_w - titleLabel.ss_w ?? 0
+            }
+        }
+        
     }
     
     open override func setTitle(_ title: String?, for state: UIControl.State) {
         super.setTitle(title, for: state)
-        setNeedsLayout()
         setNeedsDisplay()
+        layoutIfNeeded()
     }
     
     open override func setImage(_ image: UIImage?, for state: UIControl.State) {
         super.setImage(image, for: state)
-        setNeedsLayout()
         setNeedsDisplay()
+        layoutIfNeeded()
     }
     
    
@@ -401,19 +427,34 @@ open class CustomButton: Button {
 
 
 open class GradientCustomButton: CustomButton {
+    
     open override class var layerClass: AnyClass {
         return CAGradientLayer.self
     }
+    
     public var gradientLayer: CAGradientLayer {
         return self.layer as! CAGradientLayer
     }
     
     public var selectedGradientColors: [CGColor]?
+    
     public var normalGradientColors: [CGColor]? {
         didSet {
             if !isSelected {
                 gradientLayer.colors = normalGradientColors
             }
+        }
+    }
+    
+    public var gradientStartPoint: CGPoint? {
+        didSet {
+            gradientLayer.startPoint = gradientStartPoint ?? gradientLayer.startPoint
+        }
+    }
+    
+    public var gradientEndPoint: CGPoint? {
+        didSet {
+            gradientLayer.endPoint = gradientEndPoint ?? gradientLayer.endPoint
         }
     }
     

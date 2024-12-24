@@ -11,9 +11,22 @@ import UIKit
 
 fileprivate let kActivityIndicatorViewSize = CGSize(width: 28, height: 28)
 fileprivate let kActivityIndicatorViewAndTextSpace: CGFloat = 10
-fileprivate let kTextLabelMaxWidth = UIScreen.main.bounds.size.width * 0.6
 fileprivate let kCustomViewCornerRadius: CGFloat = 10
 public let kOnlyShowOneHudTag = 999888
+
+public class AutoSizeView: UIView {
+    var customIntrinsicContentSize: CGSize? {
+        didSet {
+            invalidateIntrinsicContentSize()
+        }
+    }
+    public override var intrinsicContentSize: CGSize {
+        return customIntrinsicContentSize ?? super.intrinsicContentSize
+    }
+}
+
+public typealias SSProgressCustomView = AutoSizeView & SSProgressCustom
+
 ///遮罩视图类型
 public enum  SSProgressHUDMaskType{
     ///默认没有背景
@@ -38,7 +51,7 @@ public enum SSProgressHUDMode {
      ///图标
     case  image
     
-    case custom(customView: UIView & SSProgressCustom)
+    case custom(customView: SSProgressCustomView)
     
     var isLoadAndText: Bool {
         switch self {
@@ -189,7 +202,7 @@ enum CustomLoadTextMode {
     case textOnly
 }
 
-class ProgressCustomLoadTextView: UIView & SSProgressCustom {
+class ProgressCustomLoadTextView: SSProgressCustomView {
     var text: String? {
         
         get {
@@ -319,21 +332,21 @@ class ProgressCustomLoadTextView: UIView & SSProgressCustom {
         
         
         if let textLabel = textLabel, let _ = _text {
-            let textSize = textLabel.sizeThatFits(CGSize(width: kTextLabelMaxWidth, height: CGFloat(MAXFLOAT)))
+            let textSize = textLabel.sizeThatFits(CGSize(width: SSProgressHUDConfig.textLabelMaxWidth, height: CGFloat(MAXFLOAT)))
             textLabel.frame = CGRect(x: (self.frame.size.width - textSize.width) / 2, y: activityIndicatorViewY, width: textSize.width, height: textSize.height)
             selfHeight  =  textSize.height + activityIndicatorViewY
             selfWidth = max(kActivityIndicatorViewSize.width, textSize.width)
         }
                 
         _customSize = CGSize(width: selfWidth, height: selfHeight)
-        self.superview!.setNeedsLayout()
+        customIntrinsicContentSize = _customSize
     }
   
 }
 
 
 // MARK: image
-class SSProgressCustomImageAndTextView: UIView & SSProgressCustom {
+class SSProgressCustomImageAndTextView: SSProgressCustomView {
     var text: String? {
         get {
             return _text
@@ -398,7 +411,7 @@ class SSProgressCustomImageAndTextView: UIView & SSProgressCustom {
     var textLabel: UILabel = {
         let label = UILabel()
         label.numberOfLines = 0
-        label.preferredMaxLayoutWidth = kTextLabelMaxWidth
+        label.preferredMaxLayoutWidth = SSProgressHUDConfig.textLabelMaxWidth
         return label
     }()
     private var _text: String? = nil
@@ -441,15 +454,14 @@ class SSProgressCustomImageAndTextView: UIView & SSProgressCustom {
         
         
         if let _ = _text {
-            let textSize = textLabel.sizeThatFits(CGSize(width: kTextLabelMaxWidth, height: CGFloat(MAXFLOAT)))
+            let textSize = textLabel.sizeThatFits(CGSize(width: SSProgressHUDConfig.textLabelMaxWidth, height: CGFloat(MAXFLOAT)))
             textLabel.frame = CGRect(x: (self.frame.size.width - textSize.width) / 2, y: activityIndicatorViewY, width: textSize.width, height: textSize.height)
             selfHeight += activityIndicatorViewY + textSize.height
             selfWidth = max(imageWidth, textSize.width)
         }
                 
         _customSize = CGSize(width: selfWidth, height: selfHeight)
-        self.superview!.setNeedsLayout()
-  
+        customIntrinsicContentSize = _customSize
     }
     
 }
@@ -484,12 +496,12 @@ public struct SSProgressHUDConfig {
     public static var defaultTextOnlyCustomInsetsEdge: UIEdgeInsets?
     public static var defaultLoadingCustomInsetsEdge: UIEdgeInsets?
     public static var defaultLoadingAndTextCustomInsetsEdge: UIEdgeInsets?
-
+    public static var textLabelMaxWidth = UIScreen.main.bounds.size.width * 0.8
 }
 
-public class SSProgressHUD: UIView {
+public class SSProgressHUD: AutoSizeView {
     
-   lazy var maskBackgroundView: UIView = {
+    lazy var maskBackgroundView: UIView = {
         let maskView = UIView()
         maskView.backgroundColor = maskColor(self.maskType)
         maskView.autoresizingMask = [.flexibleWidth,.flexibleHeight]
@@ -498,15 +510,25 @@ public class SSProgressHUD: UIView {
     
     ///背景视图
     public var maskType = SSProgressHUDMaskType.none
-    public var customView: UIView & SSProgressCustom
+    public var customView: SSProgressCustomView
     public var customEdgeInsets: UIEdgeInsets = UIEdgeInsets(top: 15.0, left: 15.0, bottom: 15.0, right: 15.0)
     private var effectBulrView: UIVisualEffectView
     public var style: SSProgressHUDStyle
     public var mode: SSProgressHUDMode?
     public var isShowEffectBulrView: Bool = false
-    
+    public var topMargin: CGFloat? {
+        didSet {
+            if let topMargin = topMargin {
+                self.snp.remakeConstraints { make in
+                    make.top.equalTo(topMargin)
+                    make.centerX.equalToSuperview()
+                }
+            }
+        }
+    }
+
    public convenience init(mode:SSProgressHUDMode, style: SSProgressHUDStyle = .black) {
-        var customView: UIView & SSProgressCustom
+        var customView: SSProgressCustomView
         switch mode {
             case .loadAndText:
                        customView = ProgressCustomLoadTextView.init(mode: .loadAndText)
@@ -522,12 +544,12 @@ public class SSProgressHUD: UIView {
                 customView = cst
         }
         self.init(customView:customView, style:style)
-       self.mode = mode
+        self.mode = mode
 
     }
     
   
-  public init(customView: UIView & SSProgressCustom, style: SSProgressHUDStyle) {
+  public init(customView: SSProgressCustomView, style: SSProgressHUDStyle) {
         self.customView = customView
         self.style = style
         ///
@@ -557,11 +579,10 @@ public class SSProgressHUD: UIView {
         
         let selfWidth = self.customView.customSize.width + self.customEdgeInsets.left + self.customEdgeInsets.right
         let selfHeight = self.customView.customSize.height + self.customEdgeInsets.top + self.customEdgeInsets.bottom
-        let selfX = ((self.superview?.frame.width)! - selfWidth ) / 2.0
-        let selfY = ((self.superview?.frame.height)! - selfHeight ) / 2.0
-        self.frame = CGRect(x: selfX, y: selfY, width: selfWidth, height: selfHeight)
         self.effectBulrView.frame = CGRect(x: 0, y: 0, width: selfWidth, height: selfHeight)
 //        self.maskBackgroundView.frame = CGRect(x: 0, y: 0, width: self.frame.width, height: self.frame.height)
+        customIntrinsicContentSize = CGSize(width: selfWidth, height: selfHeight)
+        
     }
     
     ///显示
@@ -572,6 +593,18 @@ public class SSProgressHUD: UIView {
                 view.addSubview(self.maskBackgroundView)
             }
             view.addSubview(self)
+            if let topMargin = topMargin {
+                self.snp.makeConstraints { make in
+                    make.top.equalTo(topMargin)
+                    make.centerX.equalToSuperview()
+
+                }
+            } else {
+                self.snp.makeConstraints { make in
+                    make.center.equalToSuperview()
+                }
+            }
+            
             if isShowEffectBulrView {
                 self.addSubview(self.effectBulrView)
             } else {
@@ -779,7 +812,7 @@ extension UIView {
         hud.maskType = maskType
         if let text = text,text.count > 0 {
             
-            let line = text.stringLineCount(font: UIFont.systemFont(ofSize: 15, weight: .medium), width: kTextLabelMaxWidth)
+            let line = text.stringLineCount(font: UIFont.systemFont(ofSize: 15, weight: .medium), width: SSProgressHUDConfig.textLabelMaxWidth)
             hud.customView.textFont = SSProgressHUDConfig.defaulHUDTextFont
         }
 //        var tag = tag

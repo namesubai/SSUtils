@@ -10,6 +10,25 @@ import RxSwift
 import RxCocoa
 import Moya
 
+extension View {
+    public struct GradientBorderData {
+        public var opacity: Float
+        public var colors: [UIColor]
+        public var startPoint: CGPoint
+        public var endPoint: CGPoint
+        public var borderWidth: CGFloat
+        public var cornerRadius: CGFloat
+        public init(opacity: Float = 1, colors: [UIColor], startPoint: CGPoint = CGPoint(x: 0, y: 0), endPoint: CGPoint = CGPoint(x: 1, y: 1), borderWidth: CGFloat, cornerRadius: CGFloat) {
+            self.opacity = opacity
+            self.colors = colors
+            self.startPoint = startPoint
+            self.endPoint = endPoint
+            self.borderWidth = borderWidth
+            self.cornerRadius = cornerRadius
+        }
+    }
+}
+
 open class View: UIView {
     public var viewModel: ViewModel?
 
@@ -17,7 +36,12 @@ open class View: UIView {
     public let emptyTrigger = PublishSubject<Void>()
     public let emptyErrorTrigger = PublishSubject<Void>()
     public let notNetworkRetryTrigger = PublishSubject<Void>()
-    
+    public var isHasContent: Bool = false
+    public var customIntrinsicContentSize: CGSize? {
+        didSet {
+            invalidateIntrinsicContentSize()
+        }
+    }
     public override init(frame: CGRect) {
         super.init(frame: frame)
         make()
@@ -35,15 +59,37 @@ open class View: UIView {
     
     public var isAutoShowNotNetworkEmptyView = false
     
+    public var gradientBorderData: GradientBorderData? = nil
+    
     public required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    open override func layoutSubviews() {
+        super.layoutSubviews()
+        if let gradientBorderData = gradientBorderData {
+            addGradientBorder(opacity: gradientBorderData.opacity,
+                              colors: gradientBorderData.colors,
+                              startPoint: gradientBorderData.startPoint,
+                              endPoint: gradientBorderData.endPoint,
+                              borderWidth: gradientBorderData.borderWidth,
+                              cornerRadius: gradientBorderData.cornerRadius)
+        }
+    }
+    
     
     open func make() {
     }
    
     deinit {
         logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
+    }
+    
+    open override var intrinsicContentSize: CGSize {
+        if let customIntrinsicContentSize = customIntrinsicContentSize {
+            return customIntrinsicContentSize
+        }
+        return super.intrinsicContentSize
     }
     
     public var notNetworkAndEmptyTrigger: Observable<Void> {
@@ -70,6 +116,11 @@ open class View: UIView {
              
          }).disposed(by: disposeBag)
         
+        viewModel.haveContents.subscribe(onNext: {
+            [weak self] hasContents in guard let self = self else { return }
+            self.isHasContent = hasContents
+        }).disposed(by: disposeBag)
+        
         viewModel.error.asObservable().subscribe(onNext: {
             [weak self] (error) in
              guard let self = self else {return}
@@ -78,9 +129,10 @@ open class View: UIView {
                 
              } else if let error = error as? Moya.MoyaError {
                  if self.isAutoShowNotNetworkEmptyView {
-                     if error.errorCode == 6   {
+                     if error.errorCode == 6, !self.isHasContent {
                          self.toastSuperView?.hideEmptyView()
                          let emptyView = self.toastSuperView?.showNetworkErrorEmptyView() {
+                             [weak self] in guard let self = self else { return }
                              self.notNetworkRetryTrigger.onNext(())
                          }
                      }
@@ -108,7 +160,7 @@ open class View: UIView {
                 self.toastSuperView?.hideNetworkErrorEmptyView()
 
             }
-            if let noData = noData {
+            if let noData = noData, !self.isHasContent {
                 self.toastSuperView?.hideEmptyView()
                 let emptyView = self.toastSuperView?.showEmptyView(image: noData.image,
                                                                 title: noData.title,
@@ -157,9 +209,9 @@ public extension Reactive where Base: View {
     var clearLoading: Binder<Bool> {
         return Binder(self.base) { view, attr in
             if attr {
-                (view._toastSuperView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear)
+                (view._toastSuperView ?? App.mainWindow)?.showLoadingTextHUD(maskType: .clear)
             }else{
-                (view._toastSuperView ?? UIApplication.shared.keyWindow)?.hideHUD()
+                (view._toastSuperView ?? App.mainWindow)?.hideHUD()
             }
         }
     }
@@ -180,7 +232,7 @@ public extension Reactive where Base: View {
             let isCanNotTouch = attr.2
             if isShow {
                 if isCanNotTouch {
-                    (view._toastSuperView ?? UIApplication.shared.keyWindow)?.showLoadingTextHUD(maskType: .clear, message)
+                    (view._toastSuperView ?? App.mainWindow)?.showLoadingTextHUD(maskType: .clear, message)
                 } else {
                     view.toastSuperView?.showLoadingTextHUD(message)
                 }
@@ -188,7 +240,7 @@ public extension Reactive where Base: View {
             } else{
                 
                 if isCanNotTouch {
-                    (view._toastSuperView ?? UIApplication.shared.keyWindow)?.hideHUD()
+                    (view._toastSuperView ?? App.mainWindow)?.hideHUD()
                 } else {
                     view.toastSuperView?.hideHUD()
                 }

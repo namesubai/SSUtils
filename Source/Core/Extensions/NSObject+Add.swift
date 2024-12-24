@@ -10,8 +10,6 @@ import Photos
 import RxCocoa
 import RxSwift
 
-//import StoreKit
-private let defaulAppStoreID = App.defaulAppStoreID
 public extension NSObject {
     static var className: String {
         return NSStringFromClass(self)
@@ -22,18 +20,18 @@ public extension NSObject {
     }
     
     func jumpToAppStore(_ url: String?) {
-        var appUrl: String = "itms-apps://itunes.apple.com/app/id\(defaulAppStoreID)"
+        var appUrl: String = "itms-apps://itunes.apple.com/app/id\(App.defaulAppStoreID)"
         if url != nil {
             appUrl = url!
         }
         
         let  appURL = URL(string: appUrl)
         
-        // 注意: 跳转之前, 可以使用 canOpenURL: 判断是否可以跳转
-        if !UIApplication.shared.canOpenURL(appURL!) {
-            // 不能跳转就不要往下执行了
-            return
-        }
+//        // 注意: 跳转之前, 可以使用 canOpenURL: 判断是否可以跳转
+//        if !UIApplication.shared.canOpenURL(appURL!) {
+//            // 不能跳转就不要往下执行了
+//            return
+//        }
 
         if #available(iOS 10.0, *) {
             UIApplication.shared.open(appURL!, options: [:]) { (success) in
@@ -98,8 +96,8 @@ public extension NSObject {
             return UIImage.init(cgImage: scaledImage!)
         }
     
-    func switchTabBarSelect(index: Int) {
-        guard let tabbarVC = UIApplication.shared.keyWindow?.rootViewController as? UITabBarController, tabbarVC.tabBar.items?.count ?? 0 > index else {
+    func changeTabBarSelected(index: Int, completion: (() -> Void)? = nil) {
+        guard let tabbarVC = App.mainWindow?.rootViewController as? UITabBarController, tabbarVC.tabBar.items?.count ?? 0 > index else {
             return
         }
         func switchToHome() {
@@ -107,6 +105,8 @@ public extension NSObject {
             if tabbarVC.selectedIndex != index {
                 tabbarVC.selectedIndex = index
             }
+            completion?()
+
         }
         
         func popToRoot() {

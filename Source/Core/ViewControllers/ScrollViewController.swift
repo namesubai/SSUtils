@@ -23,19 +23,22 @@ open class ScrollViewController: ViewController {
         return view
     }()
     
-    public var isAutoShowNavWhenHideNavVisualEffectView = false
+    public var isAutoShowNavWhenHideNavVisualEffectViewWhenScroll = false
     
     open override var bottomToolView: UIView? {
         didSet {
             if let bottomToolView = bottomToolView {
-                scrollView.frame = CGRect(x: 0, y: 0, width: view.ss_w, height: view.ss_h - bottomToolView.ss_h)
+                scrollView.frame = CGRect(x: 0, y: topMargin ?? 0, width: view.ss_w, height: view.ss_h - bottomToolView.ss_h - (topMargin ?? 0))
             } else {
-                scrollView.frame = CGRect(x: 0, y: 0, width: view.ss_w, height: view.ss_h)
+                scrollView.frame = CGRect(x: 0, y: topMargin ?? 0, width: view.ss_w, height: view.ss_h - (topMargin ?? 0))
             }
+            refreshScrollViewUI()
         }
     }
     
     open var isNoMore: Bool = false
+    public var topMargin: CGFloat?
+    public var isConatainerViewGreaterSuperViewHeight: Bool = false
     public private(set) lazy var headerRefreshTrigger: Observable<Void> = {
         return scrollView.headerRefreshTrigger
     }()
@@ -123,11 +126,20 @@ open class ScrollViewController: ViewController {
     //FIXME: 这里不能重新布局，每次滑动到边缘都会抽搐
     open override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
+        refreshScrollViewUI()
+    }
+    
+    private func refreshScrollViewUI() {
         if let bottomToolView = bottomToolView {
-            scrollView.frame = CGRect(x: 0, y: 0, width: view.ss_w, height: view.ss_h - bottomToolView.ss_h)
+            scrollView.frame = CGRect(x: 0, y: topMargin ?? 0, width: view.ss_w, height: view.ss_h - bottomToolView.ss_h - (topMargin ?? 0))
         } else {
-            scrollView.frame = CGRect(x: 0, y: 0, width: view.ss_w, height: view.ss_h)
+            scrollView.frame = CGRect(x: 0, y: topMargin ?? 0, width: view.ss_w, height: view.ss_h - (topMargin ?? 0))
         }
+        
+        if bottomToolView != nil {
+            self.view.bringSubviewToFront(bottomToolView!)
+        }
+        
         if isShowCustomNavView {
             self.view.bringSubviewToFront(customNavView)
         }
@@ -142,10 +154,13 @@ open class ScrollViewController: ViewController {
         super.make()
         view.addSubview(scrollView)
         scrollView.addSubview(containerView)
+        refreshScrollViewUI()
         containerView.snp.makeConstraints { make in
             make.edges.equalTo(0)
             make.width.equalTo(App.width)
-//            make.height.greaterThanOrEqualTo(view.ss_h + 1).priority(.high)
+            if isConatainerViewGreaterSuperViewHeight {
+               make.height.greaterThanOrEqualTo(view.ss_h).priority(.high)
+            }
         }
     }
     
@@ -163,7 +178,7 @@ open class ScrollViewController: ViewController {
             [weak self]
             isHide in
             guard let self = self else { return }
-            if self.isHideNavVisualEffectView && self.isAutoShowNavWhenHideNavVisualEffectView {
+            if self.isHideNavVisualEffectView && self.isAutoShowNavWhenHideNavVisualEffectViewWhenScroll {
                 if isHide {
                     self.setClearNav()
                 } else {

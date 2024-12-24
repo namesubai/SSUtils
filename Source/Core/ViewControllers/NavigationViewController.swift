@@ -316,6 +316,7 @@ open class NavigationViewController: UINavigationController{
             viewController.hidesBottomBarWhenPushed = viewController.hideTabbarWhenPushUseSystem
         }
         self.isPush = true
+        self.isPop = false
         beginTransilate(trasilateData: TransilateData(transilateType: .push(vc: viewController, animated: animated)))
 //        super.pushViewController(viewController, animated: animated)
     }
@@ -329,6 +330,7 @@ open class NavigationViewController: UINavigationController{
             viewControllers[1].hidesBottomBarWhenPushed = viewControllers[1].hideTabbarWhenPushUseSystem
         }
         self.isPush = true
+        self.isPop = false
         beginTransilate(trasilateData: TransilateData(transilateType: .set(vcs: viewControllers, animated: animated)))
 //        super.setViewControllers(viewControllers, animated: animated)
     }
@@ -340,6 +342,7 @@ open class NavigationViewController: UINavigationController{
 //        }
 //        guard !shouldIgnorePushingViewControllers else { return nil }
         self.isPop = true
+        self.isPush = false
         self.view.endEditing(true)
         let vc = topViewController
         beginTransilate(trasilateData: TransilateData(transilateType: .pop(vc: vc, animated: animated)))

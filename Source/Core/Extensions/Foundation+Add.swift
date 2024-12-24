@@ -55,8 +55,22 @@ public extension Array {
         } else {
             return temp
         }
-        
-       
+    }
+    func group(by size: Int) -> [[Element]] {
+        var newArr = [[Element]]()
+        var lastIndex: Int = 0
+        while lastIndex < count {
+            let to = lastIndex + size
+            if to < count {
+                let sizeArry =  Array(self[lastIndex..<to])
+                newArr.append(sizeArry)
+            } else if lastIndex < count {
+                let sizeArry =  Array(self[lastIndex..<count])
+                newArr.append(sizeArry)
+            }
+            lastIndex = to
+        }
+        return newArr
     }
 }
 
@@ -67,5 +81,59 @@ public extension Optional where Wrapped == Int {
         } else {
             return "\(self!)"
         }
+    }
+}
+
+
+extension Float {
+   public func notRounding(_ digits: Int = 2) -> Float {
+        if digits == 0 {
+            return floor(self)
+        } else {
+            let num = pow(Float(10.0),Float(digits))
+            return floor(self * num) / num
+        }
+    }
+}
+
+extension Double {
+    public func notRounding(_ digits: Int = 2) -> Double {
+        if digits == 0 {
+            return floor(self)
+        } else {
+            let num = pow(Double(10.0),Double(digits))
+            return floor(self * num) / num
+        }
+    }
+}
+
+extension CGFloat {
+    public func notRounding(_ digits: Int = 2) -> CGFloat {
+        if digits == 0 {
+            return floor(self)
+        } else {
+            let num = pow(CGFloat(10.0),CGFloat(digits))
+            return floor(self * num) / num
+        }
+    }
+}
+
+
+extension CGAffineTransform {
+    public var scale: CGFloat {
+        let _trans = self
+        let scale = sqrt(_trans.a * _trans.a + _trans.c * _trans.c)
+        return scale
+    }
+    
+    public var angle: CGFloat {
+        let _trans = self
+        var rotate = CGFloat(atanf(Float(_trans.b / _trans.a))) //acosf(_trans.a);
+        if _trans.a < 0 && _trans.b > 0 {
+            rotate += M_PI
+        }else if(_trans.a < 0 && _trans.b < 0){
+            rotate -= M_PI
+        }
+        return rotate
     }
 }

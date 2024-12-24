@@ -41,12 +41,22 @@ public class Navigator: NSObject {
         super.init()
         
     }
+    private var jumpTask = SSTask()
     @discardableResult
     public func show(scene: NavigatorScene,
                      sender: UIViewController?,
-                     transition: Transition = .navigation(animate: true), reduceLast: Int = 0, automReduceSameNameVC: Bool = false, completion: (() -> Void)? = nil) -> UIViewController? {
+                     transition: Transition = .navigation(animate: true), reduceLast: Int = 0, automReduceSameNameVC: Bool = false, isAutoInSequence: Bool = false, completion: (() -> Void)? = nil) -> UIViewController? {
         if let target = scene.viewController()  {
-            show(target: target, sender: sender, transition: transition, reduceLast: reduceLast, automReduceSameNameVC: automReduceSameNameVC, completion: completion)
+            if !isAutoInSequence {
+                show(target: target, sender: sender, transition: transition, reduceLast: reduceLast, automReduceSameNameVC: automReduceSameNameVC, completion: completion)
+            } else {
+                self.jumpTask.add { [weak self] todo in
+                    self?.show(target: target, sender: sender, transition: transition, reduceLast: reduceLast, automReduceSameNameVC: automReduceSameNameVC, completion: {
+                        todo.complete()
+                        completion?()
+                    })
+                }
+            }
             return target
         }
         return nil
@@ -67,9 +77,9 @@ public class Navigator: NSObject {
         sender?.dismiss(animated: animated, completion: completion)
     }
     
-    private func show(target: UIViewController,
+    public func show(target: UIViewController,
                       sender: UIViewController?,
-                      transition: Transition,
+                      transition: Transition = .navigation(animate: true),
                       reduceLast: Int = 0,
                       automReduceSameNameVC: Bool = false,
                       completion: (() -> Void)? = nil) {

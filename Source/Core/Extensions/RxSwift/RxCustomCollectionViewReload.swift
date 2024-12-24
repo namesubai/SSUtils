@@ -65,6 +65,7 @@ class CustomRxCollectionViewReactiveArrayDataSourceSequenceWrapper<Sequence: Swi
 }
 
 
+
 // Please take a look at `DelegateProxyType.swift`
 class CustomRxCollectionViewReactiveArrayDataSource<Element>
 : _CustomRxCollectionViewReactiveArrayDataSource
@@ -142,6 +143,17 @@ extension Reactive where Base: UICollectionView {
                 return self.items(dataSource: dataSource)(source)
             }
         }
+    }
+    
+    public func noReloadAnimationItems<Sequence: Swift.Sequence, Source: ObservableType>
+    (_ source: Source)
+    -> (_ cellFactory: @escaping (UICollectionView, Int, Sequence.Element) -> UICollectionViewCell)
+    -> Disposable where Source.Element == Sequence {
+        return { cellFactory in
+            let dataSource = CustomRxCollectionViewReactiveArrayDataSourceSequenceWrapper<Sequence>(reloadAnimated: false, cellFactory: cellFactory)
+            return self.items(dataSource: dataSource)(source)
+        }
+        
     }
 }
 

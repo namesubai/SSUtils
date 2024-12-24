@@ -113,12 +113,12 @@ extension UILabel {
         if maxWidth > 0{
             maxSize = CGSize(width: maxWidth, height: CGFloat(MAXFLOAT))
         }
-        if numberOfLines == 1 {
-            return text.oneLineSize(of: maxSize, font: font)
-        } else {
-            
+//        if numberOfLines == 1 {
+//            return text.oneLineSize(of: maxSize, font: font)
+//        } else {
+//
             return text.size(of: maxSize, font: font)
-        }
+//        }
        
     }
 }
@@ -315,6 +315,75 @@ public extension String {
             return self.count > 0
         }
         return  false
+    }
+    
+    var lastPathComponent: String {
+        (self as NSString).lastPathComponent
+    }
+    
+    var pathExtension: String {
+        (self as NSString).pathExtension
+    }
+    func emojiToImage(size: CGFloat) -> UIImage {
+        
+        let outputImageSize = CGSize.init(width: size, height: size)
+        let baseSize = self.boundingRect(with: CGSize(width: 2048, height: 2048),
+                                         options: .usesLineFragmentOrigin,
+                                         attributes: [.font: UIFont.systemFont(ofSize: size / 2)], context: nil).size
+        let fontSize = outputImageSize.width / max(baseSize.width, baseSize.height) * (outputImageSize.width / 2)
+        let font = UIFont.systemFont(ofSize: fontSize)
+        let textSize = self.boundingRect(with: CGSize(width: outputImageSize.width, height: outputImageSize.height),
+                                         options: .usesLineFragmentOrigin,
+                                         attributes: [.font: font], context: nil).size
+        
+        let style = NSMutableParagraphStyle()
+        style.alignment = NSTextAlignment.center
+        style.lineBreakMode = NSLineBreakMode.byClipping
+        
+        let attr : [NSAttributedString.Key : Any] = [.font : font,
+                                                    .paragraphStyle: style,
+                                                    .backgroundColor: UIColor.clear ]
+        
+        UIGraphicsBeginImageContextWithOptions(outputImageSize, false, 0)
+        self.draw(in: CGRect(x: (size - textSize.width) / 2,
+                             y: (size - textSize.height) / 2,
+                             width: textSize.width,
+                             height: textSize.height),
+                  withAttributes: attr)
+        let image = UIGraphicsGetImageFromCurrentImageContext()!
+        UIGraphicsEndImageContext()
+        return image
+    }
+    
+    /*
+     *去掉首尾空格
+     */
+    var removeHeadAndTailSpace:String {
+        let whitespace = NSCharacterSet.whitespaces
+        return self.trimmingCharacters(in: whitespace)
+    }
+    /*
+     *去掉首尾空格 包括后面的换行 \n
+     */
+    var removeHeadAndTailSpacePro:String {
+        let whitespace = NSCharacterSet.whitespacesAndNewlines
+        return self.trimmingCharacters(in: whitespace)
+    }
+    /*
+     *去掉所有空格
+     */
+    var removeAllSapce: String {
+        return self.replacingOccurrences(of: " ", with: "", options: .literal, range: nil)
+    }
+    /*
+     *去掉首尾空格 后 指定开头空格数
+     */
+    func beginSpaceNum(num: Int) -> String {
+        var beginSpace = ""
+        for _ in 0..<num {
+            beginSpace += " "
+        }
+        return beginSpace + self.removeHeadAndTailSpacePro
     }
 }
 

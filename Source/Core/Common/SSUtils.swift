@@ -9,10 +9,11 @@ import Foundation
 import RxSwift
 import RxCocoa
 import NSObject_Rx
+
 public let keyWindowVM = ViewModel()
 public class SSUtilsMoudle: NavigatorMoudle {
     public static func load() {
-        if let keyWindow = App.keyWindow {
+        if let keyWindow = App.mainWindow {
             keyWindowVM.loading.asObservable().subscribe(on: MainScheduler.instance).subscribe(onNext:{
                 isLoad in
                 if isLoad {
@@ -32,5 +33,11 @@ public class SSUtilsMoudle: NavigatorMoudle {
             }).disposed(by: keyWindow.rx.disposeBag)
             
         }
+        #if DEBUG
+        setupDLog()
+        #endif
     }
+    
+   
+    
 }

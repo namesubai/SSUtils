@@ -6,19 +6,22 @@
 //
 
 import UIKit
+import RxCocoa
+import RxSwift
 
 open class TableView: UITableView {
 
     init() {
-        super.init(frame: .zero, style: .grouped)
+        super.init(frame: .zero, style: .plain)
+        setUI()
     }
     
     public override init(frame: CGRect, style: UITableView.Style) {
         super.init(frame: frame,style: style)
-        
         setUI()
     }
     
+    let reloadDataTrigger = PublishSubject<Void>()
     
 //    override var separatorInset: UIEdgeInsets {
 //        didSet {
@@ -39,7 +42,7 @@ open class TableView: UITableView {
         estimatedSectionHeaderHeight = 0.0
         estimatedSectionFooterHeight = 0.0
         cellLayoutMarginsFollowReadableWidth = false
-//        keyboardDismissMode = .onDrag
+        keyboardDismissMode = .onDrag
         separatorColor = Colors.line
         separatorStyle = .none
         separatorInset = UIEdgeInsets(top: 0, left: 16.wScale, bottom: 0, right: 16.wScale)
@@ -48,6 +51,11 @@ open class TableView: UITableView {
         } 
         tableFooterView = UIView()
 //        tableHeaderView = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: 0.5))
+    }
+    
+    open override func reloadData() {
+        super.reloadData()
+        reloadDataTrigger.onNext(())
     }
     
     open override func touchesShouldBegin(_ touches: Set<UITouch>, with event: UIEvent?, in view: UIView) -> Bool {
@@ -101,7 +109,9 @@ open class TableView: UITableView {
         
     }
     
-    
+    deinit {
+        logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
+    }
     
     /*
     // Only override draw() if you perform custom drawing.

@@ -23,8 +23,13 @@ open class PlayerSlider: UISlider {
     public let endDragTrigger = PublishSubject<Void>()
     public let endProgressTrigger = PublishSubject<Double>()
     private(set) var isMoving = false
-    var progressHeight: CGFloat = 3.wScale
-    
+    public var progressHeight: CGFloat = 3.wScale
+    public var showProgreeLabel: Bool = true {
+        didSet {
+            progressLabel.isHidden = !showProgreeLabel
+        }
+    }
+
     open override func minimumValueImageRect(forBounds bounds: CGRect) -> CGRect {
         return self.bounds
     }

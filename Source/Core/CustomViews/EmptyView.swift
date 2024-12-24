@@ -71,7 +71,7 @@ open class EmptyView: UIView {
                 var topMargin = insets.top
                 let leftMargin = insets.left
                 let superSize = superview.bounds.size
-                print(superSize)
+//                print(superSize)
                 self.ss_center = CGPoint(x: superSize.width / 2 + centerOffset.x - leftMargin, y: superSize.height / 2 + centerOffset.y - topMargin + headerHeight)
             }
         }
@@ -205,16 +205,17 @@ open class EmptyView: UIView {
     }
     var showDisposeBag = DisposeBag()
     public func showEmptyView(_ onView: UIView) {
-        onView.addSubview(self)
         layoutEmptyView()
+        onView.addSubview(self)
         showDisposeBag = DisposeBag()
-        onView.rx.methodInvoked(#selector(UIView.layoutSubviews)).subscribe(onNext: {
+        
+        Observable.merge(onView.rx.methodInvoked(#selector(UIView.layoutSubviews)).mapToVoid(), onView.rx.observe(\.frame).mapToVoid()).subscribe(onNext: {
             [weak self] _ in guard let self = self else { return }
             self.layoutEmptyView()
         }).disposed(by: showDisposeBag)
         
         if let scrollView = onView as? UIScrollView {
-            scrollView.rx.observe(UIEdgeInsets.self, "safeAreaInsets").subscribe(onNext: {
+            scrollView.rx.observe(\.safeAreaInsets).subscribe(onNext: {
                 [weak self] _ in guard let self = self else { return }
                 self.layoutEmptyView()
             }).disposed(by: showDisposeBag)
@@ -233,6 +234,10 @@ open class EmptyView: UIView {
         if  let hideCompletion = hideCompletion {
             hideCompletion()
         }
+    }
+    
+    deinit {
+        logDebug(">>>>>\(type(of: self)): 已释放<<<<<< ")
     }
     
     public func observerHideCompletion(completion: @escaping HideCompletion) {
@@ -258,10 +263,10 @@ private var originalColorKey: Int8 = 0
 
 public extension UIView {
     
-//
+    /// 设置该背景色，则显示空占位图时，背景不会被替换。
     var originalColor: UIColor? {
         set {
-            objc_setAssociatedObject(self, &originalColorKey, originalColor, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(self, &originalColorKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
         get {
             objc_getAssociatedObject(self, &originalColorKey) as? UIColor
@@ -276,7 +281,7 @@ public extension UIView {
         if let emptyView = objc_getAssociatedObject(self, &networkErrorEmptyView) as? EmptyView {
             return emptyView
         } else {
-            let image = App.emptyNotNetworkImage ?? .image("notNetwork")
+            let image = App.emptyNotNetworkImage ?? ssImage("notNetwork")
             let text = App.emptyNotNetworkText ?? localized(name: "noInternetAccess")
             let emptyView = EmptyView(image: image,
                                       text: text,
@@ -291,14 +296,16 @@ public extension UIView {
                                       buttonTrigger: retry)
             objc_setAssociatedObject(self, &networkErrorEmptyView, emptyView, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             emptyView.observerHideCompletion(completion: {
+                [weak self] in guard let self = self else { return }
                 objc_setAssociatedObject(self, &networkErrorEmptyView, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             })
             if let originalColor = originalColor  {
                 backgroundColor = originalColor
+            } else {
+                backgroundColor = App.emptyBgColor
             }
             originalColor = backgroundColor
             emptyView.showEmptyView(self)
-            backgroundColor = App.emptyBgColor
             return emptyView
         }
         
@@ -337,14 +344,16 @@ public extension UIView {
                                       buttonTrigger: buttonTrigger)
             objc_setAssociatedObject(self, &emptyViewKey, emptyView, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             emptyView.observerHideCompletion(completion: {
+                [weak self] in guard let self = self else { return }
                 objc_setAssociatedObject(self, &emptyViewKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             })
             if let originalColor = originalColor  {
                 backgroundColor = originalColor
+            } else {
+                backgroundColor = App.emptyBgColor
             }
             originalColor = backgroundColor
             emptyView.showEmptyView(self)
-            backgroundColor = App.emptyBgColor
             return emptyView
         }
     }
