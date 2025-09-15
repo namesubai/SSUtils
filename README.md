@@ -1,4 +1,4 @@
-iOS Swift开发项目底层框架封装，RxSwift + MVVM的项目架构，包含多种常见的UI封装，丰富功能的基类封装
+iOS Swift开发项目底层框架封装，RxSwift + MVVM的项目架构，包含多种常见的UI封装，丰富功能的基类封装，支持组件化开发使用
 
 ### 1. 网络
 类名：Networking
@@ -11,3 +11,8 @@ iOS Swift开发项目底层框架封装，RxSwift + MVVM的项目架构，包含
 - Toast: SSProgressHUD
 - 图片预览：ImageBrowseView
 - 等等
+
+### 3. 路由
+
+- Navigator
+- 支持组件化开发的路由跳转 
