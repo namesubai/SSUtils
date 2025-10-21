@@ -7,7 +7,7 @@
 
 import UIKit
 
-fileprivate class LineAnimationView: View {
+fileprivate class LineAnimationView: SSView {
     lazy var animationView: UIView = {
         let view = UIView()
         view.backgroundColor = UIColor.hex(0xffffff)?.withAlphaComponent(0.5)
@@ -103,8 +103,8 @@ public extension UIView {
         case top,left,bottom,right
     }
     @discardableResult func addLine(line: Line,
-                                    size: CGFloat = App.pixel,
-                                    color: UIColor = Colors.line,
+                                    size: CGFloat = SSApp.pixel,
+                                    color: UIColor = SSColors.line,
                                     insets: UIEdgeInsets = .zero) -> UIView {
         let lineView = UIView()
         lineView.backgroundColor = color

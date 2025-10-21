@@ -537,7 +537,7 @@ public class SSProgressHUD: AutoSizeView {
             case .texOnly:
                        customView = ProgressCustomLoadTextView.init(mode: .textOnly)
             case .progressValue:
-                customView = CircleLoadingCustomView(type: .progress)
+                customView = SSCircleLoadingCustomView(type: .progress)
             case .image:
                 customView = SSProgressCustomImageAndTextView.init(frame: .zero)
             case .custom(let cst):

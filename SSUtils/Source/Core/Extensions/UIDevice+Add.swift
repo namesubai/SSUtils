@@ -10,10 +10,10 @@ import AdSupport
 import KeychainAccess
 
 fileprivate var deviceIdentifierKey: String {
-    App.bundleIdentifier + ".deviceIdentifierKey"
+    SSApp.bundleIdentifier + ".deviceIdentifierKey"
 }
 fileprivate var associateddeviceIdentifierKey: Int8 = 0
-let keychain = Keychain(service: App.bundleIdentifier)
+let keychain = Keychain(service: SSApp.bundleIdentifier)
 public extension UIDevice {
     
 
@@ -115,7 +115,7 @@ public extension UIDevice {
 }
 
 fileprivate var deviceIDFVKey: String {
-    App.bundleIdentifier + ".deviceIDFVKey"
+    SSApp.bundleIdentifier + ".deviceIDFVKey"
 }
 fileprivate var associatedDeviceIDFVKey: Int8 = 0
 public extension UIDevice {

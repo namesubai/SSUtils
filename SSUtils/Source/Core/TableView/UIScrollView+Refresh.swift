@@ -45,7 +45,7 @@ public class CustomFooterRefreshView: MJRefreshAutoNormalFooter {
         stateLabel?.isHidden = true
         isRefreshingTitleHidden = true
         triggerAutomaticallyRefreshPercent = 0.1
-        if App.isShowFooterNoMoreData {
+        if SSApp.isShowFooterNoMoreData {
             setTitle(localized(name: "noMoreData"), for: .noMoreData)
         } else {
             setTitle("", for: .noMoreData)

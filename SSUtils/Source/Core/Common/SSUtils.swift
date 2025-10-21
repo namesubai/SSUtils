@@ -10,10 +10,10 @@ import RxSwift
 import RxCocoa
 import NSObject_Rx
 
-public let keyWindowVM = ViewModel()
+public let keyWindowVM = SSViewModel()
 public class SSUtilsMoudle: NavigatorMoudle {
     public static func load() {
-        if let keyWindow = App.mainWindow {
+        if let keyWindow = SSApp.mainWindow {
             keyWindowVM.loading.asObservable().subscribe(on: MainScheduler.instance).subscribe(onNext:{
                 isLoad in
                 if isLoad {

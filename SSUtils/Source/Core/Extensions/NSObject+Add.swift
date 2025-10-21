@@ -20,7 +20,7 @@ public extension NSObject {
     }
     
     func jumpToAppStore(_ url: String?) {
-        var appUrl: String = "itms-apps://itunes.apple.com/app/id\(App.defaulAppStoreID)"
+        var appUrl: String = "itms-apps://itunes.apple.com/app/id\(SSApp.defaulAppStoreID)"
         if url != nil {
             appUrl = url!
         }
@@ -97,7 +97,7 @@ public extension NSObject {
         }
     
     func changeTabBarSelected(index: Int, completion: (() -> Void)? = nil) {
-        guard let tabbarVC = App.mainWindow?.rootViewController as? UITabBarController, tabbarVC.tabBar.items?.count ?? 0 > index else {
+        guard let tabbarVC = SSApp.mainWindow?.rootViewController as? UITabBarController, tabbarVC.tabBar.items?.count ?? 0 > index else {
             return
         }
         func switchToHome() {

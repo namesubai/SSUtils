@@ -60,8 +60,8 @@ public extension UIImage {
     func clipImage(rect: CGRect, superSize: CGSize? = nil) -> UIImage? {
         
         let sourceImageRef = cgImage!
-        let scale = size.width / (superSize?.width ?? App.width)
-        let hScale = size.height / (superSize?.height ?? App.height)
+        let scale = size.width / (superSize?.width ?? SSApp.width)
+        let hScale = size.height / (superSize?.height ?? SSApp.height)
         let rect = CGRect(x: rect.minX * scale, y: rect.minY * hScale, width: rect.width * scale, height: rect.height * hScale)
         if let newImageRef = sourceImageRef.cropping(to: rect) {
             let newImage = UIImage(cgImage: newImageRef)

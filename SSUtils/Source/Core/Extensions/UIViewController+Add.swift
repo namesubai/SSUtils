@@ -11,7 +11,7 @@ import UIKit
 
 public extension UIViewController {
     enum ButtonItemType {
-        case title(title: String, color: UIColor? = Colors.subTitle, font: UIFont = UIFont.systemFont(ofSize: 18))
+        case title(title: String, color: UIColor? = SSColors.subTitle, font: UIFont = UIFont.systemFont(ofSize: 18))
         case image(_ image: UIImage?)
         case custom(customView: UIView)
         case space(width: CGFloat)
@@ -25,11 +25,11 @@ public extension UIViewController {
     }
     
     var statusBarHeight: CGFloat {
-        return App.statusBarHeight
+        return SSApp.statusBarHeight
     }
     
     var navigationBarAndStatusBarHeight: CGFloat {
-        navigationBarHeight + App.statusBarHeight
+        navigationBarHeight + SSApp.statusBarHeight
     }
     
     var tabbarHeight: CGFloat {
@@ -225,7 +225,7 @@ public extension UIViewController {
 
 public extension UIViewController {
     class func getRootViewController(fromWindow: UIWindow? = nil) -> UIViewController? {
-        let window: UIWindow? = fromWindow ?? App.mainWindow
+        let window: UIWindow? = fromWindow ?? SSApp.mainWindow
         return window?.rootViewController
     }
     class func getCurrentViewController(fromWindow: UIWindow? = nil) -> UIViewController? {

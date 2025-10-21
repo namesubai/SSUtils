@@ -2,7 +2,7 @@
 //  DemoUITestsLaunchTests.swift
 //  DemoUITests
 //
-//  Created by yangsq on 2025/2/20.
+//  Created by Shuqy on 2025/10/21.
 //
 
 import XCTest
@@ -17,7 +17,6 @@ final class DemoUITestsLaunchTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()
         app.launch()
